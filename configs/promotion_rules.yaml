@@ -1,0 +1,5 @@
+# Promotion rules — placeholder (implemented in Phase 4)
+# Example thresholds:
+#   correctness: 0.85
+#   groundedness: 0.90
+#   policy_compliance: 1.0
