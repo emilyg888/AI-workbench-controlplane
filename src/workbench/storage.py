@@ -56,8 +56,38 @@ SCAFFOLD_DIRS = [
 ]
 
 
+DEFAULT_SCORING_PROFILE_YAML = """version: "1"
+name: default
+scorers:
+  correctness:
+    type: exact_match
+    weight: 0.35
+    case_sensitive: false
+  groundedness:
+    type: passage_overlap
+    weight: 0.25
+    min_overlap: 0.3
+  policy_compliance:
+    type: policy_check
+    weight: 0.20
+    policy_pack_ref: data/policies/stub.yaml
+  refusal_quality:
+    type: refusal_classifier
+    weight: 0.05
+  latency:
+    type: latency_budget
+    weight: 0.10
+    budget_p95_ms: 2000
+  completeness:
+    type: non_empty
+    weight: 0.05
+aggregate:
+  method: weighted_mean
+"""
+
+
 def ensure_registry_files(root: Path, force: bool = False) -> list[str]:
-    """Seed registry/ and configs/ with Phase 1 initial content.
+    """Seed registry/ and configs/ with initial content.
 
     Returns list of paths created or overwritten (relative to root).
     """
@@ -83,6 +113,17 @@ def ensure_registry_files(root: Path, force: bool = False) -> list[str]:
             if _is_nonempty_registry(target):
                 continue
         write_json_atomic(target, data)
+        touched.append(rel)
+
+    yaml_seeds = {
+        "configs/scoring_profile.yaml": DEFAULT_SCORING_PROFILE_YAML,
+    }
+    for rel, content in yaml_seeds.items():
+        target = root / rel
+        if target.exists() and target.stat().st_size > 0 and not force:
+            continue
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding="utf-8")
         touched.append(rel)
     return touched
 

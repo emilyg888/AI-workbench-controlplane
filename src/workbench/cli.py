@@ -8,7 +8,14 @@ from pydantic import ValidationError
 from rich.console import Console
 from rich.table import Table
 
-from . import bundle_manager, db, deployment_state_manager, experiment_runner
+from . import (
+    bundle_manager,
+    comparison,
+    db,
+    deployment_state_manager,
+    evaluation_engine,
+    experiment_runner,
+)
 from .models import BundleState
 from .state_machine import InvalidTransitionError
 from .storage import ensure_registry_files, find_workbench_root, read_json
@@ -230,6 +237,73 @@ def show_run_cmd(run_id: str = typer.Argument(...)) -> None:
     console.print_json(data=config)
     console.print("[bold]Timings[/bold]")
     console.print_json(data=timings)
+
+
+# ---------------------------------------------------------------------------
+# Phase 3: evaluation engine
+# ---------------------------------------------------------------------------
+
+
+@app.command("eval")
+def eval_cmd(
+    run_id: str = typer.Argument(...),
+    profile: str | None = typer.Option(None, "--profile"),
+    baseline: str | None = typer.Option(None, "--baseline"),
+) -> None:
+    """Score a run; writes metrics.json + scorecard.md."""
+    root = _root_or_fail()
+    try:
+        result = evaluation_engine.evaluate_run(
+            run_id, profile_name=profile, baseline_run_id=baseline, root=root
+        )
+    except FileNotFoundError as e:
+        _fail(str(e), EXIT_NOT_FOUND)
+    lines = [f"{k:20s} {v:.3f}" for k, v in result.scores.items()]
+    console.print("\n".join(lines))
+    console.print(f"[bold]aggregate           {result.aggregate:.3f}[/bold]")
+    console.print(
+        f"[green]✓[/green] Wrote metrics.json + scorecard.md for {run_id}"
+    )
+
+
+@app.command("show-scorecard")
+def show_scorecard_cmd(run_id: str = typer.Argument(...)) -> None:
+    root = _root_or_fail()
+    p = root / "runs" / run_id / "scorecard.md"
+    if not p.exists():
+        _fail(f"scorecard missing: {p}", EXIT_NOT_FOUND)
+    console.print(p.read_text(encoding="utf-8"))
+
+
+@app.command("compare-runs")
+def compare_runs_cmd(
+    candidate_run_id: str = typer.Argument(...),
+    baseline: str = typer.Option(..., "--baseline"),
+) -> None:
+    root = _root_or_fail()
+    cand = root / "runs" / candidate_run_id / "metrics.json"
+    base = root / "runs" / baseline / "metrics.json"
+    if not cand.exists():
+        _fail(f"candidate metrics missing: {cand}", EXIT_NOT_FOUND)
+    if not base.exists():
+        _fail(f"baseline metrics missing: {base}", EXIT_NOT_FOUND)
+    report = comparison.compare(read_json(base), read_json(cand))
+    table = Table(show_header=True, header_style="bold")
+    for col in ("METRIC", "BASELINE", "CANDIDATE", "DELTA", "DIR"):
+        table.add_column(col)
+    for d in report.deltas:
+        b = "—" if d.baseline is None else f"{d.baseline:.3f}"
+        c = "—" if d.candidate is None else f"{d.candidate:.3f}"
+        dd = "—" if d.delta is None else f"{d.delta:+.3f}"
+        arrow = "↑" if d.direction == "up" else (
+            "↓ regression" if d.direction == "down" else (
+                "·" if d.direction == "flat" else "?"
+            )
+        )
+        table.add_row(d.metric, b, c, dd, arrow)
+    console.print(table)
+    if report.any_regression:
+        console.print("[red]Regressions detected[/red]")
 
 
 if __name__ == "__main__":
