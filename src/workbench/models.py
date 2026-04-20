@@ -19,6 +19,7 @@ class BundleState(str, Enum):
     APPROVED = "approved"
     DEPLOYED = "deployed"
     ARCHIVED = "archived"
+    REJECTED = "rejected"
 
 
 class ModelSpec(BaseModel):

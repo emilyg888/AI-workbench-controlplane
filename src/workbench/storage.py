@@ -86,6 +86,32 @@ aggregate:
 """
 
 
+DEFAULT_PROMOTION_RULES_YAML = """version: "1"
+name: default
+
+thresholds:
+  correctness: 0.85
+  groundedness: 0.90
+  policy_compliance: 1.00
+  refusal_quality: 0.80
+  latency: 0.70
+  completeness: 0.95
+  aggregate: 0.85
+
+regression_checks:
+  enabled: true
+  baseline: prod
+  max_absolute_drop: 0.02
+  strict_metrics:
+    - policy_compliance
+
+approval:
+  candidate_requires_all_thresholds: true
+  approved_requires:
+    mode: auto
+"""
+
+
 def ensure_registry_files(root: Path, force: bool = False) -> list[str]:
     """Seed registry/ and configs/ with initial content.
 
@@ -117,6 +143,7 @@ def ensure_registry_files(root: Path, force: bool = False) -> list[str]:
 
     yaml_seeds = {
         "configs/scoring_profile.yaml": DEFAULT_SCORING_PROFILE_YAML,
+        "configs/promotion_rules.yaml": DEFAULT_PROMOTION_RULES_YAML,
     }
     for rel, content in yaml_seeds.items():
         target = root / rel

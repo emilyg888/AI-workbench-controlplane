@@ -4,14 +4,23 @@ from .models import BundleState
 
 S = BundleState
 
+# Every non-terminal state can transition to `rejected` via the promotion
+# engine — see phase 4 spec §6.
+_REJECTABLE = {S.EVALUATED, S.CANDIDATE}
+
 ALLOWED: dict[BundleState, set[BundleState]] = {
     S.DRAFT:     {S.EVALUATED, S.ARCHIVED},
-    S.EVALUATED: {S.CANDIDATE, S.ARCHIVED},
-    S.CANDIDATE: {S.EVALUATED, S.APPROVED, S.ARCHIVED},
+    S.EVALUATED: {S.CANDIDATE, S.ARCHIVED, S.REJECTED},
+    S.CANDIDATE: {S.EVALUATED, S.APPROVED, S.ARCHIVED, S.REJECTED},
     S.APPROVED:  {S.DEPLOYED, S.ARCHIVED},
     S.DEPLOYED:  {S.APPROVED, S.ARCHIVED},
     S.ARCHIVED:  set(),
+    S.REJECTED:  set(),
 }
+
+
+__all__ = ["ALLOWED", "InvalidTransitionError", "is_valid_transition",
+           "assert_transition", "_REJECTABLE"]
 
 
 class InvalidTransitionError(ValueError):

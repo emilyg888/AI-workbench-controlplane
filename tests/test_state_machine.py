@@ -47,6 +47,16 @@ def test_archived_is_terminal() -> None:
         assert not is_valid_transition(BundleState.ARCHIVED, s)
 
 
+def test_rejected_is_terminal() -> None:
+    for s in ALL_STATES:
+        assert not is_valid_transition(BundleState.REJECTED, s)
+
+
+def test_can_reject_from_evaluated_and_candidate() -> None:
+    assert is_valid_transition(BundleState.EVALUATED, BundleState.REJECTED)
+    assert is_valid_transition(BundleState.CANDIDATE, BundleState.REJECTED)
+
+
 def test_self_transitions_rejected() -> None:
     for s in ALL_STATES:
         assert not is_valid_transition(s, s)

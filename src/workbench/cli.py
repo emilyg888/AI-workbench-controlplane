@@ -15,6 +15,7 @@ from . import (
     deployment_state_manager,
     evaluation_engine,
     experiment_runner,
+    promotion_engine,
 )
 from .models import BundleState
 from .state_machine import InvalidTransitionError
@@ -304,6 +305,84 @@ def compare_runs_cmd(
     console.print(table)
     if report.any_regression:
         console.print("[red]Regressions detected[/red]")
+
+
+# ---------------------------------------------------------------------------
+# Phase 4: promotion workflow
+# ---------------------------------------------------------------------------
+
+
+@app.command("propose-promotion")
+def propose_promotion_cmd(
+    run_id: str = typer.Argument(...),
+    rules: str | None = typer.Option(None, "--rules"),
+) -> None:
+    """Run the promotion engine; may transition bundle to candidate/approved/rejected."""
+    root = _root_or_fail()
+    try:
+        decision = promotion_engine.propose(run_id, rules_profile=rules, root=root)
+    except FileNotFoundError as e:
+        _fail(str(e), EXIT_NOT_FOUND)
+    except bundle_manager.BundleNotFoundError as e:
+        _fail(str(e), EXIT_NOT_FOUND)
+
+    console.print(
+        f"[green]✓[/green] Decision: [bold]{decision.result}[/bold] "
+        f"(approver={decision.approver})\n"
+        f"  Decision ID: {decision.decision_id}"
+    )
+
+
+@app.command("approve")
+def approve_cmd(
+    bundle_id: str = typer.Argument(...),
+    notes: str | None = typer.Option(None, "--notes"),
+) -> None:
+    root = _root_or_fail()
+    try:
+        decision = promotion_engine.approve(
+            bundle_id, approver="manual", notes=notes, root=root
+        )
+    except bundle_manager.BundleNotFoundError as e:
+        _fail(str(e), EXIT_NOT_FOUND)
+    except InvalidTransitionError as e:
+        _fail(str(e), EXIT_VALIDATION)
+    console.print(f"[green]✓[/green] Approved {bundle_id} ({decision.decision_id})")
+
+
+@app.command("reject")
+def reject_cmd(
+    bundle_id: str = typer.Argument(...),
+    reason: str = typer.Option(..., "--reason"),
+) -> None:
+    root = _root_or_fail()
+    try:
+        decision = promotion_engine.reject(bundle_id, reason, root=root)
+    except bundle_manager.BundleNotFoundError as e:
+        _fail(str(e), EXIT_NOT_FOUND)
+    except promotion_engine.PromotionError as e:
+        _fail(str(e), EXIT_VALIDATION)
+    console.print(f"[yellow]✗[/yellow] Rejected {bundle_id} ({decision.decision_id})")
+
+
+@app.command("show-promotion-log")
+def show_promotion_log_cmd(
+    bundle: str | None = typer.Option(None, "--bundle"),
+) -> None:
+    root = _root_or_fail()
+    entries = promotion_engine.read_log(root=root)
+    if bundle:
+        entries = [e for e in entries if e.get("bundle_id") == bundle]
+    if not entries:
+        console.print("[dim](no decisions)[/dim]")
+        return
+    table = Table(show_header=True, header_style="bold")
+    for col in ("DECISION_ID", "BUNDLE", "RESULT", "APPROVER", "AT"):
+        table.add_column(col)
+    for e in entries:
+        table.add_row(e["decision_id"], e["bundle_id"], e["result"],
+                      e.get("approver", ""), e.get("decided_at", ""))
+    console.print(table)
 
 
 if __name__ == "__main__":
