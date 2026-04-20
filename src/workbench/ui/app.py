@@ -1,25 +1,30 @@
-"""Streamlit entrypoint. Run with: workbench ui  (or streamlit run ...)."""
+"""Streamlit entrypoint. Run with: workbench ui  (or streamlit run ...).
+
+Note: the page modules live under ``ui/views/`` (not ``ui/pages/``) to
+avoid Streamlit's auto multi-page feature, which would re-register each
+file as a separate top-level page and duplicate the nav.
+"""
 from __future__ import annotations
 
 import streamlit as st
 
 from workbench.ui import data
-from workbench.ui.pages import (
+from workbench.ui.views import (
     bundles as bundles_page,
 )
-from workbench.ui.pages import (
+from workbench.ui.views import (
     compare as compare_page,
 )
-from workbench.ui.pages import (
+from workbench.ui.views import (
     deployments as deployments_page,
 )
-from workbench.ui.pages import (
+from workbench.ui.views import (
     home as home_page,
 )
-from workbench.ui.pages import (
+from workbench.ui.views import (
     promotions as promotions_page,
 )
-from workbench.ui.pages import (
+from workbench.ui.views import (
     runs as runs_page,
 )
 
