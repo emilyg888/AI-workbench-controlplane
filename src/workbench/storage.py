@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable, Iterator
 
 ENV_ROOT = "WORKBENCH_ROOT"
 
@@ -99,3 +101,52 @@ def _is_nonempty_registry(path: Path) -> bool:
                 return True
         return False
     return False
+
+
+def write_jsonl(path: Path, records: Iterable[dict]) -> int:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    n = 0
+    with tmp.open("w", encoding="utf-8") as f:
+        for rec in records:
+            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+            n += 1
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, path)
+    return n
+
+
+def read_jsonl(path: Path) -> Iterator[dict]:
+    with path.open("r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                yield json.loads(line)
+
+
+def append_jsonl(path: Path, record: dict) -> None:
+    """Append a single record. Not atomic; for per-request logging only."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+
+def sha256_file(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def new_run_id(bundle_id: str, now: datetime | None = None) -> str:
+    ts = (now or datetime.now(timezone.utc)).strftime("%Y%m%dT%H%M%SZ")
+    return f"run_{ts}_{bundle_id}"
+
+
+def new_run_dir(root: Path, bundle_id: str, now: datetime | None = None) -> tuple[str, Path]:
+    run_id = new_run_id(bundle_id, now=now)
+    d = root / "runs" / run_id
+    d.mkdir(parents=True, exist_ok=False)
+    return run_id, d

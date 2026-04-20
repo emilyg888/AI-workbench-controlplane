@@ -8,10 +8,10 @@ from pydantic import ValidationError
 from rich.console import Console
 from rich.table import Table
 
-from . import bundle_manager, deployment_state_manager
+from . import bundle_manager, db, deployment_state_manager, experiment_runner
 from .models import BundleState
 from .state_machine import InvalidTransitionError
-from .storage import ensure_registry_files, find_workbench_root
+from .storage import ensure_registry_files, find_workbench_root, read_json
 
 app = typer.Typer(add_completion=False, help="AI Workbench Control Plane CLI")
 console = Console()
@@ -159,6 +159,77 @@ def set_state(
         f"[green]✓[/green] Transitioned {bundle_id}: "
         f"{before.state.value} → {target.value}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Phase 2: experiment execution
+# ---------------------------------------------------------------------------
+
+
+@app.command("run-experiment")
+def run_experiment_cmd(
+    bundle: str = typer.Option(..., "--bundle", help="Bundle id to execute."),
+    eval_set: str = typer.Option(..., "--eval-set", help="Eval set name or path."),
+    limit: int | None = typer.Option(None, "--limit", help="Cap the number of inputs."),
+) -> None:
+    """Run a bundle against an eval set; writes run artifact + DuckDB row."""
+    root = _root_or_fail()
+    try:
+        result = experiment_runner.run_experiment(bundle, eval_set, limit=limit, root=root)
+    except bundle_manager.BundleNotFoundError as e:
+        _fail(str(e), EXIT_NOT_FOUND)
+    except experiment_runner.EvalSetNotFoundError as e:
+        _fail(str(e), EXIT_NOT_FOUND)
+    except Exception as e:
+        _fail(f"run failed: {e}", EXIT_ERR)
+
+    console.print(
+        f"[green]✓[/green] Run complete: [bold]{result.run_id}[/bold]\n"
+        f"  {result.succeeded} succeeded, {result.failed} failed, "
+        f"p50={result.p50_latency_ms}ms, p95={result.p95_latency_ms}ms\n"
+        f"  Artifacts: {result.run_dir}"
+    )
+
+
+@app.command("list-runs")
+def list_runs_cmd(
+    bundle: str | None = typer.Option(None, "--bundle"),
+    limit: int = typer.Option(50, "--limit"),
+) -> None:
+    """Tabular list of runs from DuckDB."""
+    root = _root_or_fail()
+    con = db.connect(root)
+    rows = db.list_runs(con, bundle_id=bundle, limit=limit)
+    con.close()
+    if not rows:
+        console.print("[dim](no runs)[/dim]")
+        return
+    table = Table(show_header=True, header_style="bold")
+    for col in ("RUN_ID", "BUNDLE", "EVAL_SET", "STATUS", "P50", "P95"):
+        table.add_column(col)
+    for r in rows:
+        table.add_row(
+            r["run_id"], r["bundle_id"], r["eval_set"],
+            str(r.get("status") or ""),
+            str(r.get("p50_latency_ms") or ""),
+            str(r.get("p95_latency_ms") or ""),
+        )
+    console.print(table)
+
+
+@app.command("show-run")
+def show_run_cmd(run_id: str = typer.Argument(...)) -> None:
+    """Pretty-print a run's config.json + timings summary."""
+    root = _root_or_fail()
+    run_dir = root / "runs" / run_id
+    if not run_dir.exists():
+        _fail(f"run not found: {run_id}", EXIT_NOT_FOUND)
+    config = read_json(run_dir / "config.json")
+    timings = read_json(run_dir / "timings.json")
+    console.print("[bold]Config[/bold]")
+    console.print_json(data=config)
+    console.print("[bold]Timings[/bold]")
+    console.print_json(data=timings)
 
 
 if __name__ == "__main__":
