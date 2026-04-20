@@ -28,7 +28,7 @@ def test_bundles_page_lists_bundles(
     bundle_manager.create_bundle(stub_bundle_spec, root=workbench_root)
     at = AppTest.from_file(UI_APP, default_timeout=10)
     at.run()
-    at.sidebar.radio[0].set_value("Bundles").run()
+    at.sidebar.radio[0].set_value("Register").run()
     assert not at.exception
 
 

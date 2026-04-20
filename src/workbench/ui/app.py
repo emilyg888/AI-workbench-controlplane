@@ -28,15 +28,15 @@ from workbench.ui.views import (
     runs as runs_page,
 )
 
-# Sidebar order mirrors the lifecycle:
-#   register → run/eval → promote → deploy → observe
+# Sidebar labels mirror the lifecycle:
+#   register → run/eval → promote → deploy → compare w/ challenger
 PAGES = {
     "Home": home_page.render,
-    "Bundles": bundles_page.render,
-    "Runs": runs_page.render,
-    "Promotions": promotions_page.render,
-    "Deployments": deployments_page.render,
-    "Compare": compare_page.render,
+    "Register": bundles_page.render,
+    "Run / Eval": runs_page.render,
+    "Promote": promotions_page.render,
+    "Deploy": deployments_page.render,
+    "Compare w/ Challenger": compare_page.render,
 }
 
 

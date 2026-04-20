@@ -525,3 +525,17 @@ Patching Wall clock	Rough token budget
 3.2 prod eval loop	15–30 min	~30–60k
 3.4 plane split (refactor)	20–40 min	~40–80k
 3.5 LLM contract	5–10 min	~10–20k
+
+Compare page (last in the flow) is runtime observation, specifically champion-vs-challenger comparison: after a bundle is deployed, you can configure another bundle as a challenger in the same env (shadow mode or traffic-split). The Compare page pulls from the DuckDB inference_requests table and shows side-by-side stats for the two bundles over a time window:
+
+requests (volume each bundle served)
+errors
+p50 / p95 latency (ms)
+policy block rate
+It answers: "Should I promote the challenger? Is it actually better in real traffic?"
+
+So in the lifecycle it's the feedback loop:
+
+register → run/eval → promote → deploy → observe (Compare)
+                                              │
+                                              └──► propose a new challenger → loop

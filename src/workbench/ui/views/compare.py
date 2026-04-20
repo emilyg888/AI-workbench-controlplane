@@ -7,7 +7,8 @@ from .. import data
 
 
 def render() -> None:
-    st.header("Runtime comparison")
+    st.header("Compare w/ Challenger")
+    st.caption("Side-by-side runtime stats: champion vs challenger")
     env = st.session_state.get("env", data.list_envs()[0])
 
     bundles = [b.bundle_id for b in data.list_bundles()]

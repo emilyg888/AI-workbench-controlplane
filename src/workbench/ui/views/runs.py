@@ -8,7 +8,8 @@ from .. import data
 
 
 def render() -> None:
-    st.header("Runs")
+    st.header("Run / Eval")
+    st.caption("Experiments against eval sets, with scorecards")
 
     runs = data.list_runs(limit=100)
     if not runs:

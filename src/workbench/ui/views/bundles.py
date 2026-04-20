@@ -9,7 +9,8 @@ from .. import data
 
 
 def render() -> None:
-    st.header("Bundles")
+    st.header("Register")
+    st.caption("Create and inspect bundles")
 
     col1, col2 = st.columns(2)
     with col1:

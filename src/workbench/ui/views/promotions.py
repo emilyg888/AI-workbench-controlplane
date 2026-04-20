@@ -11,7 +11,8 @@ from .. import data
 
 
 def render() -> None:
-    st.header("Promotions")
+    st.header("Promote")
+    st.caption("Review candidates, approve/reject, inspect decision log")
 
     # Pending candidates
     candidates = [b for b in bundle_manager.list_bundles()

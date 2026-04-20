@@ -9,7 +9,8 @@ from .. import data
 
 
 def render() -> None:
-    st.header("Deployments")
+    st.header("Deploy")
+    st.caption("Active bundle per environment, with history and rollback")
     envs = data.list_envs()
 
     cols = st.columns(len(envs))
