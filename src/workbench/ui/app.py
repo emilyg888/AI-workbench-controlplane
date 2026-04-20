@@ -31,7 +31,7 @@ from workbench.ui.views import (
 # Sidebar labels mirror the lifecycle:
 #   register → run/eval → promote → deploy → compare w/ challenger
 PAGES = {
-    "Home": home_page.render,
+    "Bundles": home_page.render,
     "Register": bundles_page.render,
     "Run / Eval": runs_page.render,
     "Promote": promotions_page.render,

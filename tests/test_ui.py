@@ -19,7 +19,7 @@ def test_app_loads_home(workbench_root: Path, stub_bundle_spec: dict) -> None:
     at = AppTest.from_file(UI_APP, default_timeout=10)
     at.run()
     assert not at.exception
-    assert any("Home" in str(h.value) for h in at.header)
+    assert any("Bundles" in str(h.value) for h in at.header)
 
 
 def test_bundles_page_lists_bundles(

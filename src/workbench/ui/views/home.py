@@ -6,7 +6,8 @@ from .. import data
 
 
 def render() -> None:
-    st.header("Home")
+    st.header("Bundles")
+    st.caption("Overview: active bundles per environment, recent runs, recent decisions")
 
     st.subheader("Active bundles")
     cols = st.columns(len(data.list_envs()))
