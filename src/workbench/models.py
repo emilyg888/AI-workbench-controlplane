@@ -91,6 +91,19 @@ class Lineage(BaseModel):
     notes: str | None = None
 
 
+class ResolvedRetrieval(BaseModel):
+    """Retrieval corpus fingerprint — we hash the corpus rather than inline
+    it, because corpora are large and drift here is the #1 source of silent
+    output change in RAG systems."""
+
+    corpus_hash: str | None = None
+    doc_count: int | None = None
+    embedding_model_version: str | None = None
+    # For file-backed retrievers, the resolved path to the corpus at
+    # approval time (for debugging; not used at runtime).
+    source_path: str | None = None
+
+
 class ResolvedComponents(BaseModel):
     """Frozen snapshot of the bundle's component contents, materialised at
     approval time. Once set, runtime reads from here instead of chasing live
@@ -102,11 +115,16 @@ class ResolvedComponents(BaseModel):
     prompt_text: str | None = None
     policy_rules: dict[str, Any] = Field(default_factory=dict)
     retrieval_config: dict[str, Any] = Field(default_factory=dict)
+    retrieval: ResolvedRetrieval = Field(default_factory=ResolvedRetrieval)
     scoring_profile: dict[str, Any] = Field(default_factory=dict)
     semantic_layer: dict[str, Any] | None = None
     signal_layer: dict[str, Any] | None = None
-    # sha256 of each source file, keyed by arcname.
+    # sha256 of each source file, keyed by arcname. ``model`` key holds the
+    # Ollama digest or equivalent when available.
     hashes: dict[str, str] = Field(default_factory=dict)
+    # The run_id whose metrics.json is the absolute baseline for drift
+    # detection. Stamped at approval time.
+    approval_baseline_run_id: str | None = None
 
 
 class Bundle(BaseModel):

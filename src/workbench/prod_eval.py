@@ -14,8 +14,8 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from . import db, deployment_state_manager
-from .storage import find_workbench_root, write_jsonl
+from . import bundle_manager, db, deployment_state_manager
+from .storage import find_workbench_root, read_json, write_jsonl
 
 
 class WindowStats(BaseModel):
@@ -118,6 +118,23 @@ def sample_production(
     return output
 
 
+def _load_approval_baseline(
+    root: Path, bundle_id: str
+) -> tuple[dict | None, dict | None]:
+    """Return (metrics, timings) for the approval baseline run, or (None,None)."""
+    try:
+        bundle = bundle_manager.get_bundle(bundle_id, root=root)
+    except bundle_manager.BundleNotFoundError:
+        return None, None
+    if not bundle.resolved or not bundle.resolved.approval_baseline_run_id:
+        return None, None
+    run_id = bundle.resolved.approval_baseline_run_id
+    rd = root / "runs" / run_id
+    metrics = read_json(rd / "metrics.json") if (rd / "metrics.json").exists() else None
+    timings = read_json(rd / "timings.json") if (rd / "timings.json").exists() else None
+    return metrics, timings
+
+
 def drift_check(
     env: str,
     recent_hours: float = 1.0,
@@ -125,10 +142,16 @@ def drift_check(
     error_rate_threshold: float = 0.05,
     latency_p95_pct_threshold: float = 0.25,
     block_rate_threshold: float = 0.05,
+    vs_approval: bool = False,
     root: Path | None = None,
 ) -> DriftReport:
-    """Compare the most recent window against the preceding baseline window
-    for the env's active bundle. Returns a DriftReport with flags.
+    """Compare the most recent serving window against a baseline.
+
+    By default, baseline = the preceding ``baseline_hours`` window of
+    the same bundle (sliding). With ``vs_approval=True``, the baseline
+    is the *approval-time* metrics.json pinned via
+    ``bundle.resolved.approval_baseline_run_id`` — absolute regression,
+    not relative.
     """
     root = root or find_workbench_root()
     dep = deployment_state_manager.get_active_full(env, root=root)
@@ -137,13 +160,40 @@ def drift_check(
 
     now = datetime.now(timezone.utc)
     recent_since = now - timedelta(hours=recent_hours)
-    baseline_until = recent_since
-    baseline_since = baseline_until - timedelta(hours=baseline_hours)
 
     con = db.connect(root)
     recent = _stats(con, env, dep.active_bundle_id, recent_since, now)
-    baseline = _stats(con, env, dep.active_bundle_id, baseline_since,
-                      baseline_until)
+
+    if vs_approval:
+        approval_metrics, approval_timings = _load_approval_baseline(
+            root, dep.active_bundle_id
+        )
+        if approval_metrics is None or approval_timings is None:
+            con.close()
+            raise ValueError(
+                f"bundle {dep.active_bundle_id!r} has no approval baseline; "
+                f"re-approve or run without --vs-approval"
+            )
+        baseline = WindowStats(
+            window_hours=0.0,
+            since=approval_metrics.get("scored_at", ""),
+            until=approval_metrics.get("scored_at", ""),
+            total=int(approval_timings.get("total_inputs", 0) or 0),
+            errors=int(approval_timings.get("failed", 0) or 0),
+            error_rate=((approval_timings.get("failed", 0) or 0) /
+                        max(1, approval_timings.get("total_inputs", 1) or 1)),
+            p50_latency_ms=int(approval_timings.get("p50_latency_ms", 0) or 0),
+            p95_latency_ms=int(approval_timings.get("p95_latency_ms", 0) or 0),
+            # Approval-time policy_block_rate derived from metrics scores
+            policy_block_rate=1.0 - float(
+                approval_metrics.get("scores", {}).get("policy_compliance", 1.0)
+            ),
+        )
+    else:
+        baseline_until = recent_since
+        baseline_since = baseline_until - timedelta(hours=baseline_hours)
+        baseline = _stats(con, env, dep.active_bundle_id,
+                          baseline_since, baseline_until)
     con.close()
 
     reasons: list[str] = []

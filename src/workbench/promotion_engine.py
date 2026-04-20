@@ -36,6 +36,10 @@ class Checks(BaseModel):
     regression: dict[str, Any] = Field(default_factory=dict)
     must_pass: list[dict] = Field(default_factory=list)
     guardrails: dict[str, Any] = Field(default_factory=dict)
+    # Policy-layer weighted aggregate (if ``weighted_metrics`` configured).
+    # Separate from ``metrics["aggregate"]`` which is the eval-layer
+    # diagnostic figure.
+    promotion_aggregate: float | None = None
 
 
 class PromotionDecision(BaseModel):
@@ -120,55 +124,58 @@ def _latest_metrics_for_bundle(root: Path, bundle_id: str) -> dict | None:
     return candidates[0][1]
 
 
-_MUST_PASS_RE = __import__("re").compile(
-    r"^\s*(\w+)\s*(==|!=|>=|<=|>|<)\s*([-+\d.]+|true|false)\s*$",
-    flags=__import__("re").IGNORECASE,
-)
-
-
 def _check_must_pass(
     metrics: dict, rules: PromotionRules
 ) -> tuple[list[dict], bool]:
-    """Evaluate ``must_pass`` expressions. Any failure = reject."""
+    """Evaluate ``must_pass`` expressions via simpleeval.
+
+    Each expression is evaluated against a namespace of metric names ->
+    their current values plus ``aggregate``. Supports full boolean
+    grammar: ``(correctness >= 0.9) or (refusal_quality >= 0.95)``.
+    """
+    from simpleeval import EvalWithCompoundTypes, InvalidExpression, NameNotDefined
+
+    namespace = {"aggregate": metrics.get("aggregate")}
+    namespace.update(metrics.get("scores", {}))
+    evaluator = EvalWithCompoundTypes(names=namespace)
+
     violations: list[dict] = []
-    scores = metrics.get("scores", {})
     for expr in rules.must_pass:
-        m = _MUST_PASS_RE.match(expr)
-        if not m:
-            violations.append({"expr": expr, "error": "unparseable"})
+        try:
+            result = evaluator.eval(expr)
+        except (NameNotDefined, InvalidExpression, SyntaxError) as e:
+            violations.append({"expr": expr,
+                               "error": f"{type(e).__name__}: {e}"})
             continue
-        metric, op, raw = m.group(1), m.group(2), m.group(3).lower()
-        value = metrics.get("aggregate") if metric == "aggregate" else scores.get(metric)
-        target: float | bool
-        if raw in ("true", "false"):
-            target = raw == "true"
-        else:
-            target = float(raw)
-        ok = _compare(value, op, target)
-        if not ok:
+        except Exception as e:
+            violations.append({"expr": expr,
+                               "error": f"eval failed: {e}"})
+            continue
+        if not bool(result):
             violations.append({
-                "expr": expr, "metric": metric, "value": value,
-                "op": op, "target": target,
+                "expr": expr,
+                "namespace": {k: v for k, v in namespace.items()
+                              if v is not None},
             })
     return violations, not violations
 
 
-def _compare(lhs, op: str, rhs) -> bool:
-    if lhs is None:
-        return False
-    if op == "==":
-        return lhs == rhs
-    if op == "!=":
-        return lhs != rhs
-    if op == ">=":
-        return lhs >= rhs
-    if op == "<=":
-        return lhs <= rhs
-    if op == ">":
-        return lhs > rhs
-    if op == "<":
-        return lhs < rhs
-    return False
+def _compute_promotion_aggregate(
+    metrics: dict, rules: PromotionRules
+) -> float | None:
+    """Weighted sum over ``rules.weighted_metrics``. None if not configured."""
+    if not rules.weighted_metrics:
+        return None
+    scores = metrics.get("scores", {})
+    total_w = 0.0
+    acc = 0.0
+    for name, weight in rules.weighted_metrics.items():
+        v = metrics.get("aggregate") if name == "aggregate" else scores.get(name)
+        if v is None:
+            continue
+        total_w += weight
+        acc += weight * float(v)
+    return acc / total_w if total_w > 0 else None
 
 
 def _check_guardrails(
@@ -204,13 +211,22 @@ def _check_guardrails(
 
 
 def _check_thresholds(
-    metrics: dict, rules: PromotionRules
+    metrics: dict, rules: PromotionRules,
+    promotion_aggregate: float | None = None,
 ) -> tuple[dict[str, CheckResult], bool]:
+    """Threshold check. When ``promotion_aggregate`` is supplied, the
+    ``aggregate`` threshold is evaluated against it (policy-layer
+    weighting) rather than the eval-layer aggregate."""
     out: dict[str, CheckResult] = {}
     all_pass = True
     scores = metrics.get("scores", {})
     for name, th in rules.thresholds.items():
-        value = metrics.get("aggregate") if name == "aggregate" else scores.get(name)
+        if name == "aggregate":
+            value = (promotion_aggregate
+                     if promotion_aggregate is not None
+                     else metrics.get("aggregate"))
+        else:
+            value = scores.get(name)
         ok = value is not None and value >= th
         out[name] = CheckResult(value=value, threshold=th, **{"pass": bool(ok)})
         if not ok:
@@ -319,7 +335,10 @@ def propose(
     rules = load_rules(rules_profile, root=root)
     mp_violations, mp_ok = _check_must_pass(metrics, rules)
     gr_counts, gr_violations, gr_ok = _check_guardrails(run_id, rules, root)
-    thresholds, thr_ok = _check_thresholds(metrics, rules)
+    promotion_aggregate = _compute_promotion_aggregate(metrics, rules)
+    thresholds, thr_ok = _check_thresholds(
+        metrics, rules, promotion_aggregate=promotion_aggregate,
+    )
     _, _, baseline = _baseline_metrics(root, rules)
     regression, reg_ok = _check_regression(metrics, baseline, rules)
 
@@ -351,7 +370,11 @@ def propose(
                 bundle_id, BundleState.APPROVED, root=root
             )
             # Freeze component contents at approval time (3.1 snapshot)
-            bundle_manager.snapshot_bundle(bundle_id, root=root)
+            # and pin this run as the absolute drift baseline (2.2).
+            bundle_manager.snapshot_bundle(
+                bundle_id, root=root,
+                approval_baseline_run_id=run_id,
+            )
             result = "approved"
 
     decision = PromotionDecision(
@@ -366,6 +389,7 @@ def propose(
             regression=regression,
             must_pass=mp_violations,
             guardrails=guardrails_info,
+            promotion_aggregate=promotion_aggregate,
         ),
         approver="auto",
         notes=None,

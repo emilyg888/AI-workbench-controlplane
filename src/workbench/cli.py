@@ -639,13 +639,21 @@ def drift_check_cmd(
     env: str = typer.Option(..., "--env"),
     recent_hours: float = typer.Option(1.0, "--recent-hours"),
     baseline_hours: float = typer.Option(24.0, "--baseline-hours"),
+    vs_approval: bool = typer.Option(
+        False, "--vs-approval",
+        help="Compare against the bundle's pinned approval-time baseline.",
+    ),
 ) -> None:
-    """Compare latest window against baseline for env's active bundle."""
+    """Compare latest window against a baseline for env's active bundle.
+
+    Exits 1 when drift is detected (cron-friendly).
+    """
     root = _root_or_fail()
     try:
         report = prod_eval.drift_check(
             env, recent_hours=recent_hours,
-            baseline_hours=baseline_hours, root=root,
+            baseline_hours=baseline_hours,
+            vs_approval=vs_approval, root=root,
         )
     except ValueError as e:
         _fail(str(e), EXIT_NOT_FOUND)
@@ -653,6 +661,53 @@ def drift_check_cmd(
     if report.drifted:
         console.print(f"[red]⚠ drift detected[/red]: "
                       f"{', '.join(report.drift_reasons)}")
+        raise typer.Exit(code=1)
+
+
+@app.command("monitor")
+def monitor_cmd(
+    env: str = typer.Option(..., "--env"),
+    recent_hours: float = typer.Option(1.0, "--recent-hours"),
+    vs_approval: bool = typer.Option(
+        True, "--vs-approval/--vs-window",
+        help="Compare to approval baseline (default) or to sliding window.",
+    ),
+    interval: int = typer.Option(
+        0, "--interval",
+        help="Seconds between checks. 0 = single check then exit.",
+    ),
+) -> None:
+    """Cron-friendly drift monitor. Exits 1 on any drift detection.
+
+    With ``--interval 0`` runs one check and exits. With ``--interval N``
+    loops forever, printing one line per check; exits 1 when terminated
+    via signal if any drift was seen.
+    """
+    import time as _time
+    root = _root_or_fail()
+    seen_drift = False
+    while True:
+        try:
+            report = prod_eval.drift_check(
+                env, recent_hours=recent_hours,
+                vs_approval=vs_approval, root=root,
+            )
+        except ValueError as e:
+            _fail(str(e), EXIT_NOT_FOUND)
+        ts = report.recent.until
+        if report.drifted:
+            console.print(
+                f"[red]{ts}[/red] drift: "
+                f"{', '.join(report.drift_reasons)}"
+            )
+            seen_drift = True
+        else:
+            console.print(f"[green]{ts}[/green] ok")
+        if interval <= 0:
+            break
+        _time.sleep(interval)
+    if seen_drift:
+        raise typer.Exit(code=1)
 
 
 # ---------------------------------------------------------------------------

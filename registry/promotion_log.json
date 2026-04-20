@@ -1,1 +1,149 @@
-[]
+[
+  {
+    "decision_id": "prom_20260420T085544Z_stub_demo_v1",
+    "bundle_id": "stub_demo_v1",
+    "run_id": "run_20260420T085302Z_stub_demo_v1",
+    "decided_at": "2026-04-20T08:55:44Z",
+    "rules_profile": "default@v1",
+    "result": "rejected",
+    "checks": {
+      "thresholds": {
+        "correctness": {
+          "value": 0.0,
+          "threshold": 0.85,
+          "pass": false
+        },
+        "groundedness": {
+          "value": 1.0,
+          "threshold": 0.9,
+          "pass": true
+        },
+        "policy_compliance": {
+          "value": 1.0,
+          "threshold": 1.0,
+          "pass": true
+        },
+        "refusal_quality": {
+          "value": 1.0,
+          "threshold": 0.8,
+          "pass": true
+        },
+        "latency": {
+          "value": 1.0,
+          "threshold": 0.7,
+          "pass": true
+        },
+        "completeness": {
+          "value": 1.0,
+          "threshold": 0.95,
+          "pass": true
+        },
+        "aggregate": {
+          "value": 0.65,
+          "threshold": 0.85,
+          "pass": false
+        }
+      },
+      "regression": {
+        "baseline_bundle_id": null,
+        "baseline_run_id": null,
+        "violations": []
+      },
+      "must_pass": [],
+      "guardrails": {
+        "failures_by_tag": {},
+        "violations": []
+      }
+    },
+    "approver": "auto",
+    "notes": null
+  },
+  {
+    "decision_id": "prom_20260420T090122Z_stub_demo_v2",
+    "bundle_id": "stub_demo_v2",
+    "run_id": "run_20260420T090013Z_stub_demo_v2",
+    "decided_at": "2026-04-20T09:01:22Z",
+    "rules_profile": "default@v1",
+    "result": "rejected",
+    "checks": {
+      "thresholds": {
+        "correctness": {
+          "value": 0.0,
+          "threshold": 0.85,
+          "pass": false
+        },
+        "groundedness": {
+          "value": 1.0,
+          "threshold": 0.9,
+          "pass": true
+        },
+        "policy_compliance": {
+          "value": 1.0,
+          "threshold": 1.0,
+          "pass": true
+        },
+        "refusal_quality": {
+          "value": 1.0,
+          "threshold": 0.8,
+          "pass": true
+        },
+        "latency": {
+          "value": 1.0,
+          "threshold": 0.7,
+          "pass": true
+        },
+        "completeness": {
+          "value": 1.0,
+          "threshold": 0.95,
+          "pass": true
+        },
+        "aggregate": {
+          "value": 0.65,
+          "threshold": 0.0,
+          "pass": true
+        }
+      },
+      "regression": {
+        "baseline_bundle_id": null,
+        "baseline_run_id": null,
+        "violations": []
+      },
+      "must_pass": [],
+      "guardrails": {
+        "failures_by_tag": {},
+        "violations": []
+      }
+    },
+    "approver": "auto",
+    "notes": null
+  },
+  {
+    "decision_id": "prom_20260420T091523Z_stub_demo_v3",
+    "bundle_id": "stub_demo_v3",
+    "run_id": "run_20260420T091432Z_stub_demo_v3",
+    "decided_at": "2026-04-20T09:15:23Z",
+    "rules_profile": "default@v1",
+    "result": "approved",
+    "checks": {
+      "thresholds": {
+        "aggregate": {
+          "value": 0.65,
+          "threshold": 0.0,
+          "pass": true
+        }
+      },
+      "regression": {
+        "baseline_bundle_id": null,
+        "baseline_run_id": null,
+        "violations": []
+      },
+      "must_pass": [],
+      "guardrails": {
+        "failures_by_tag": {},
+        "violations": []
+      }
+    },
+    "approver": "auto",
+    "notes": null
+  }
+]

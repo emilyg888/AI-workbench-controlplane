@@ -71,24 +71,88 @@ def test_runtime_uses_snapshot_not_live_file(
     assert "DRIFTED" not in rr.prompt_template
 
 
-def test_snapshot_is_idempotent(
+def test_snapshot_is_idempotent_when_content_matches(
     workbench_root: Path, stub_bundle_spec: dict, tiny_eval_set: str
 ) -> None:
-    prompt_path = _setup_and_propose(
-        workbench_root, stub_bundle_spec, tiny_eval_set
-    )
+    _setup_and_propose(workbench_root, stub_bundle_spec, tiny_eval_set)
     b1 = bundle_manager.get_bundle("stub_bundle_v1", root=workbench_root)
     h1 = dict(b1.resolved.hashes)
 
-    # re-snapshot — contents unchanged, hash stable
+    # re-snapshot with no source change — ok, hashes identical.
     b2 = bundle_manager.snapshot_bundle(
         "stub_bundle_v1", root=workbench_root
     )
     assert b2.resolved.hashes == h1
 
-    # Now change the source → new snapshot captures the change
-    prompt_path.write_text("UPDATED")
-    b3 = bundle_manager.snapshot_bundle(
-        "stub_bundle_v1", root=workbench_root
+
+def test_snapshot_refuses_to_mutate_approved_bundle(
+    workbench_root: Path, stub_bundle_spec: dict, tiny_eval_set: str
+) -> None:
+    import pytest as _pytest
+    prompt_path = _setup_and_propose(
+        workbench_root, stub_bundle_spec, tiny_eval_set
     )
-    assert b3.resolved.hashes["prompt"] != h1["prompt"]
+    # Bundle is now APPROVED + resolved. Mutating source + re-snapshotting
+    # must raise — otherwise the "immutable at approval" guarantee is a lie.
+    prompt_path.write_text("TAMPERED")
+    with _pytest.raises(bundle_manager.ImmutableBundleError):
+        bundle_manager.snapshot_bundle(
+            "stub_bundle_v1", root=workbench_root
+        )
+
+
+def test_snapshot_force_overrides_immutability(
+    workbench_root: Path, stub_bundle_spec: dict, tiny_eval_set: str
+) -> None:
+    prompt_path = _setup_and_propose(
+        workbench_root, stub_bundle_spec, tiny_eval_set
+    )
+    prompt_path.write_text("ADMIN FIX")
+    b = bundle_manager.snapshot_bundle(
+        "stub_bundle_v1", root=workbench_root, force=True
+    )
+    assert "ADMIN FIX" in b.resolved.prompt_text
+
+
+def test_approval_baseline_run_id_stamped(
+    workbench_root: Path, stub_bundle_spec: dict, tiny_eval_set: str
+) -> None:
+    _setup_and_propose(workbench_root, stub_bundle_spec, tiny_eval_set)
+    b = bundle_manager.get_bundle("stub_bundle_v1", root=workbench_root)
+    assert b.resolved.approval_baseline_run_id is not None
+    assert b.resolved.approval_baseline_run_id.startswith("run_")
+
+
+def test_retrieval_corpus_fingerprint(
+    workbench_root: Path, stub_bundle_spec: dict, tiny_eval_set: str
+) -> None:
+    # File-backed retrieval profile + corpus
+    corpus = workbench_root / "data" / "retrieval" / "demo.jsonl"
+    corpus.parent.mkdir(parents=True, exist_ok=True)
+    corpus.write_text(
+        '{"id": "d1", "text": "first"}\n'
+        '{"id": "d2", "text": "second"}\n'
+    )
+    spec = {**stub_bundle_spec, "name": "r_bundle", "version": "1.0.0"}
+    spec["components"] = {
+        **spec["components"],
+        "retrieval": {"profile_ref": "demo"},
+    }
+    # Follow the same approval route as _setup_and_propose does for stub
+    (workbench_root / "configs" / "promotion_rules.yaml").write_text(
+        "version: '1'\nname: default\n"
+        "thresholds: {aggregate: 0.0}\n"
+        "regression_checks: {enabled: false}\n"
+        "approval: {approved_requires: {mode: auto}}\n"
+    )
+    bundle_manager.create_bundle(spec, root=workbench_root)
+    from workbench import evaluation_engine, experiment_runner, promotion_engine
+    run = experiment_runner.run_experiment(
+        "r_bundle_v1", tiny_eval_set, root=workbench_root
+    )
+    evaluation_engine.evaluate_run(run.run_id, root=workbench_root)
+    promotion_engine.propose(run.run_id, root=workbench_root)
+
+    b = bundle_manager.get_bundle("r_bundle_v1", root=workbench_root)
+    assert b.resolved.retrieval.corpus_hash is not None
+    assert b.resolved.retrieval.doc_count == 2

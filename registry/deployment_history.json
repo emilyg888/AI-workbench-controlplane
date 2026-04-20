@@ -1,0 +1,13 @@
+[
+  {
+    "event_id": "dep_20260420T091645Z_dev_activate",
+    "env": "dev",
+    "action": "activate",
+    "bundle_id": "stub_demo_v3",
+    "previous_bundle_id": null,
+    "at": "2026-04-20T09:16:45Z",
+    "by": "local-user",
+    "promotion_decision_id": null,
+    "notes": null
+  }
+]

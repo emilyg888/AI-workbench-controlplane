@@ -1,4 +1,14 @@
 {
-  "dev": { "active_bundle_id": null, "updated_at": null },
-  "prod": { "active_bundle_id": null, "updated_at": null }
+  "dev": {
+    "active_bundle_id": "stub_demo_v3",
+    "activated_at": "2026-04-20T09:16:45Z",
+    "activated_by": "local-user",
+    "promotion_decision_id": null
+  },
+  "prod": {
+    "active_bundle_id": null,
+    "activated_at": null,
+    "activated_by": null,
+    "promotion_decision_id": null
+  }
 }

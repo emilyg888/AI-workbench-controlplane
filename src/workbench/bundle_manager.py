@@ -88,22 +88,65 @@ def list_bundles(
     return bundles
 
 
-def snapshot_bundle(
-    bundle_id: str, root: Path | None = None, strict: bool = False
-) -> Bundle:
-    """Freeze live ``*_ref`` contents into ``bundle.resolved``. Idempotent.
+class ImmutableBundleError(ValueError):
+    """Raised when code tries to re-snapshot an approved bundle with
+    non-matching content hashes (i.e. the snapshot would actually change)."""
 
-    Called by the promotion engine at approval time. Safe to call again
-    at any point; the latest snapshot replaces the previous one.
+
+_IMMUTABLE_STATES = {BundleState.APPROVED, BundleState.DEPLOYED}
+
+
+def snapshot_bundle(
+    bundle_id: str,
+    root: Path | None = None,
+    strict: bool = False,
+    approval_baseline_run_id: str | None = None,
+    force: bool = False,
+) -> Bundle:
+    """Freeze live ``*_ref`` contents into ``bundle.resolved``.
+
+    Idempotent when called with matching content. Raises
+    ``ImmutableBundleError`` if the bundle is already in an immutable
+    state (``approved`` / ``deployed``) *and* the new snapshot would
+    produce different hashes. Pass ``force=True`` to override for
+    administrative fixes (e.g. after ``doctor``-driven repair).
+
+    ``approval_baseline_run_id`` is stamped into the resolved block
+    only on the *first* snapshot — subsequent idempotent calls never
+    overwrite it.
     """
     root = root or find_workbench_root()
     from .snapshot import snapshot_components
     bundles = _load_all(root)
     for i, b in enumerate(bundles):
         if b.bundle_id == bundle_id:
-            resolved = snapshot_components(b, root=root, strict=strict)
+            new_resolved = snapshot_components(b, root=root, strict=strict)
+            if (
+                b.resolved is not None
+                and b.state in _IMMUTABLE_STATES
+                and not force
+                and b.resolved.hashes != new_resolved.hashes
+            ):
+                raise ImmutableBundleError(
+                    f"bundle {bundle_id!r} is {b.state.value}; snapshot would "
+                    f"change hashes. Old: {b.resolved.hashes}; "
+                    f"new: {new_resolved.hashes}"
+                )
+
+            # Preserve approval_baseline_run_id if already set; otherwise
+            # stamp it from the parameter.
+            if b.resolved and b.resolved.approval_baseline_run_id:
+                new_resolved = new_resolved.model_copy(update={
+                    "approval_baseline_run_id":
+                        b.resolved.approval_baseline_run_id
+                })
+            elif approval_baseline_run_id:
+                new_resolved = new_resolved.model_copy(update={
+                    "approval_baseline_run_id": approval_baseline_run_id
+                })
+
             updated = b.model_copy(update={
-                "resolved": resolved,
+                "resolved": new_resolved,
                 "updated_at": utcnow_iso(),
             })
             bundles[i] = updated
