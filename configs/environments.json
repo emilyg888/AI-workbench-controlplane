@@ -1,0 +1,4 @@
+{
+  "dev": { "description": "Local development environment" },
+  "prod": { "description": "Local production-equivalent environment" }
+}

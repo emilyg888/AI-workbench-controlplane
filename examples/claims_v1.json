@@ -1,0 +1,31 @@
+{
+  "components": {
+    "model": {
+      "name": "llama3.1-8b",
+      "provider": "local-ollama",
+      "params": { "temperature": 0.2, "max_tokens": 1024 }
+    },
+    "prompt": {
+      "template_ref": "data/prompts/claims_v1.txt",
+      "version": "v1"
+    },
+    "retrieval": {
+      "profile_ref": "data/retrieval/claims_profile.yaml",
+      "version": "v1"
+    },
+    "policy": {
+      "pack_ref": "data/policies/claims_pack.yaml",
+      "version": "v1"
+    },
+    "evaluation": {
+      "profile_ref": "configs/scoring_profile.yaml",
+      "version": "v1"
+    },
+    "semantic_layer": { "ref": "data/semantic/claims.yaml" },
+    "signal_layer": { "ref": "data/signals/claims.yaml" }
+  },
+  "lineage": {
+    "parent_bundle_id": null,
+    "notes": "initial draft"
+  }
+}

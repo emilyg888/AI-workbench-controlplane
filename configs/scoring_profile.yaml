@@ -1,0 +1,8 @@
+# Scoring profile — placeholder (implemented in Phase 3)
+# Example metrics:
+#   - correctness
+#   - groundedness
+#   - policy_compliance
+#   - refusal_quality
+#   - latency
+#   - completeness
