@@ -66,6 +66,24 @@ def try_register_ollama() -> bool:
     return True
 
 
+def try_register_lmstudio() -> bool:
+    """Lazy import + register LM Studio adapter. Returns True if registered."""
+    try:
+        from .model_lmstudio import LMStudioModelAdapter
+    except Exception:
+        return False
+    _MODEL_FACTORIES["lmstudio"] = lambda spec, root: LMStudioModelAdapter(spec)
+    _MODEL_FACTORIES["local-lmstudio"] = lambda spec, root: LMStudioModelAdapter(spec)
+    return True
+
+
+# Register HTTP-backed adapters at import time so every caller (experiment
+# runner, serving, runtime_resolver) sees them. These fail silently if their
+# optional deps aren't installed.
+try_register_ollama()
+try_register_lmstudio()
+
+
 def try_register_chroma() -> bool:
     """Lazy import + register chroma adapter. Returns True if registered."""
     try:

@@ -9,5 +9,16 @@
     "by": "local-user",
     "promotion_decision_id": null,
     "notes": null
+  },
+  {
+    "event_id": "dep_20260420T234528Z_dev_activate",
+    "env": "dev",
+    "action": "activate",
+    "bundle_id": "copilot_champion_v1",
+    "previous_bundle_id": "stub_demo_v3",
+    "at": "2026-04-20T23:45:28Z",
+    "by": "local-user",
+    "promotion_decision_id": null,
+    "notes": null
   }
 ]

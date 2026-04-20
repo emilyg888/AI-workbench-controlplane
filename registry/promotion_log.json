@@ -145,5 +145,35 @@
     },
     "approver": "auto",
     "notes": null
+  },
+  {
+    "decision_id": "prom_20260420T234528Z_copilot_champion_v1",
+    "bundle_id": "copilot_champion_v1",
+    "run_id": "run_20260420T234408Z_copilot_champion_v1",
+    "decided_at": "2026-04-20T23:45:28Z",
+    "rules_profile": "default@v1",
+    "result": "approved",
+    "checks": {
+      "thresholds": {
+        "aggregate": {
+          "value": 0.5389,
+          "threshold": 0.0,
+          "pass": true
+        }
+      },
+      "regression": {
+        "baseline_bundle_id": null,
+        "baseline_run_id": null,
+        "violations": []
+      },
+      "must_pass": [],
+      "guardrails": {
+        "failures_by_tag": {},
+        "violations": []
+      },
+      "promotion_aggregate": null
+    },
+    "approver": "auto",
+    "notes": null
   }
 ]

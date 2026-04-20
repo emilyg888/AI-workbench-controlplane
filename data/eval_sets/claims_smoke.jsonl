@@ -1,0 +1,5 @@
+{"input_id": "q_001", "input": {"question": "What is covered by my policy?"}, "expected": "Your policy covers standard claims.", "tags": ["easy"]}
+{"input_id": "q_002", "input": {"question": "What is my deductible?"}, "expected": "Your deductible is $500.", "tags": ["easy"]}
+{"input_id": "q_003", "input": {"question": "How do I file a claim?"}, "expected": "File online or by phone.", "tags": ["medium"]}
+{"input_id": "q_004", "input": {"question": "Is water damage covered?"}, "expected": "Yes, in most cases.", "tags": ["medium"]}
+{"input_id": "q_005", "input": {"question": "Can I cancel anytime?"}, "expected": "Yes, with 30 days notice.", "tags": ["easy"]}

@@ -1,0 +1,33 @@
+version: "1"
+# Post-model output checks for the copilot. Applied after generation.
+# Keyword-block rules fire when the model leaks ungoverned behaviour.
+output_rules:
+  - id: no_raw_table_names
+    type: regex_block
+    pattern: "\\braw_transactions\\b|\\bcustomer_pii\\b"
+    action: block
+    message: "I cannot answer that. The request would touch raw tables; please use a certified semantic view."
+
+  - id: no_speculative_causality
+    type: keyword_block
+    keywords:
+      - "the reason is probably"
+      - "I think because"
+      - "likely caused by"
+    action: block
+    replacement: "I cannot answer that. Causality questions require evidence from a certified analytical view."
+
+  - id: no_subjective_ranking
+    type: keyword_block
+    keywords:
+      - "high value customers"
+      - "most valuable customer"
+    action: block
+    replacement: "I cannot answer that. 'High value' is not a certified term; please query a certified segmentation view."
+
+input_rules:
+  - id: redact_emails
+    type: regex_block
+    pattern: "[\\w.+-]+@[\\w.-]+\\.\\w{2,}"
+    action: redact
+    message: "Emails are redacted before reaching the model."

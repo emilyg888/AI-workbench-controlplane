@@ -1,0 +1,33 @@
+{
+  "components": {
+    "model": {
+      "name": "qwen/qwen3.5-9b",
+      "provider": "lmstudio",
+      "params": {
+        "temperature": 0.2,
+        "max_tokens": 512,
+        "timeout_seconds": 60
+      }
+    },
+    "prompt": {
+      "template_ref": "data/prompts/copilot_v1.txt",
+      "version": "v1"
+    },
+    "retrieval": {
+      "profile_ref": "stub",
+      "version": "v1"
+    },
+    "policy": {
+      "pack_ref": "data/policies/copilot_policy.yaml",
+      "version": "v1"
+    },
+    "evaluation": {
+      "profile_ref": "configs/scoring_profile.yaml",
+      "version": "v1"
+    }
+  },
+  "lineage": {
+    "parent_bundle_id": "copilot_champion_v1",
+    "notes": "Copilot challenger bundle. LM Studio qwen/qwen3.5-9b; same prompt + policy as champion — only the model differs."
+  }
+}

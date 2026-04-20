@@ -31,6 +31,10 @@ data/eval_sets/*
 data/retrieval/*
 data/policies/*
 !data/**/.gitkeep
+# …but keep demo assets referenced by bundles in examples/
+!data/eval_sets/copilot_smoke.jsonl
+!data/eval_sets/claims_smoke.jsonl
+!data/policies/copilot_policy.yaml
 
 # logs
 logs/

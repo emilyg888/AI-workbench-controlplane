@@ -14,6 +14,7 @@ from .adapters.base import ModelAdapter, RetrievalAdapter
 from .adapters.registry import (
     get_model_adapter,
     get_retrieval_adapter,
+    try_register_lmstudio,
     try_register_ollama,
 )
 from .environments import load_environments
@@ -74,6 +75,7 @@ def resolve(env: str, root: Path | None = None) -> ResolvedRuntime:
     bundle = bundle_manager.get_bundle(dep.active_bundle_id, root=root)
 
     try_register_ollama()
+    try_register_lmstudio()
 
     model = get_model_adapter(
         {
@@ -109,6 +111,7 @@ def resolve(env: str, root: Path | None = None) -> ResolvedRuntime:
 
 def _build_runtime_for_bundle(bundle: Bundle, root: Path) -> ResolvedRuntime:
     try_register_ollama()
+    try_register_lmstudio()
     model = get_model_adapter(
         {"provider": bundle.components.model.provider,
          "name": bundle.components.model.name,

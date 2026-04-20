@@ -1,0 +1,33 @@
+{
+  "components": {
+    "model": {
+      "name": "qwen2.5-14b-instruct",
+      "provider": "lmstudio",
+      "params": {
+        "temperature": 0.2,
+        "max_tokens": 512,
+        "timeout_seconds": 60
+      }
+    },
+    "prompt": {
+      "template_ref": "data/prompts/copilot_v1.txt",
+      "version": "v1"
+    },
+    "retrieval": {
+      "profile_ref": "stub",
+      "version": "v1"
+    },
+    "policy": {
+      "pack_ref": "data/policies/copilot_policy.yaml",
+      "version": "v1"
+    },
+    "evaluation": {
+      "profile_ref": "configs/scoring_profile.yaml",
+      "version": "v1"
+    }
+  },
+  "lineage": {
+    "parent_bundle_id": null,
+    "notes": "Copilot champion bundle. LM Studio Qwen2.5-14B-Instruct."
+  }
+}

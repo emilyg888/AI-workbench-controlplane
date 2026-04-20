@@ -2,7 +2,13 @@
   "dev": {
     "description": "Local development environment",
     "requires_bundle_state": "approved",
-    "min_dwell_before_next_env_hours": 0
+    "min_dwell_before_next_env_hours": 0,
+    "challenger": {
+      "enabled": true,
+      "bundle_id": "copilot_challenger_v1",
+      "mode": "shadow",
+      "traffic_fraction": 0.0
+    }
   },
   "prod": {
     "description": "Local production-equivalent environment",
