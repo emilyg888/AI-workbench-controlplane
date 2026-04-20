@@ -1,0 +1,39 @@
+# secrets
+.env
+*.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+*.egg-info/
+dist/
+build/
+
+# uv
+.uv-cache/
+
+# DB
+db/*.duckdb
+db/*.duckdb.wal
+
+# runs (keep structure, not contents)
+runs/*
+!runs/.gitkeep
+
+# data (keep structure, not data)
+data/eval_sets/*
+data/retrieval/*
+data/policies/*
+!data/**/.gitkeep
+
+# logs
+logs/
+
+# IDE
+.idea/
+.vscode/
+
+# macOS
+.DS_Store

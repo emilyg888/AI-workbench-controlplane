@@ -1,0 +1,35 @@
+[project]
+name = "ai-workbench-controlplane"
+version = "0.1.0"
+description = "AI Workbench control plane"
+readme = "README.md"
+requires-python = ">=3.10"
+
+dependencies = [
+    "duckdb>=0.10.0",
+    "pandas>=2.2.0",
+    "requests>=2.31.0",
+    "python-dotenv>=1.0.0",
+    "pydantic>=2.6.0",
+    "pyyaml>=6.0",
+    "matplotlib>=3.8.0",
+    "streamlit>=1.32.0",
+    "openai>=1.30.0",
+    "garminconnect>=0.2.0",
+    "plotly>=5.20.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "black>=24.0.0",
+    "ruff>=0.3.0",
+    "ipykernel>=6.29.0"
+]
+
+[tool.black]
+line-length = 100
+
+[tool.ruff]
+line-length = 100
+select = ["E", "F", "I"]
