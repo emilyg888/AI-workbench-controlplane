@@ -128,9 +128,19 @@ def ensure_registry_files(root: Path, force: bool = False) -> list[str]:
             "prod": {"active_bundle_id": None, "updated_at": None},
         },
         "registry/promotion_log.json": [],
+        "registry/deployment_history.json": [],
         "configs/environments.json": {
-            "dev": {"description": "Local development environment"},
-            "prod": {"description": "Local production-equivalent environment"},
+            "dev": {
+                "description": "Local development environment",
+                "requires_bundle_state": "approved",
+                "min_dwell_before_next_env_hours": 0,
+            },
+            "prod": {
+                "description": "Local production-equivalent environment",
+                "requires_bundle_state": "approved",
+                "requires_previous_env": "dev",
+                "min_dwell_before_next_env_hours": 1,
+            },
         },
     }
     for rel, data in seeds.items():

@@ -385,5 +385,74 @@ def show_promotion_log_cmd(
     console.print(table)
 
 
+# ---------------------------------------------------------------------------
+# Phase 5: environment deployment states
+# ---------------------------------------------------------------------------
+
+
+def _deploy(env: str, bundle_id: str, notes: str | None) -> None:
+    root = _root_or_fail()
+    try:
+        dep = deployment_state_manager.set_active(
+            env, bundle_id, notes=notes, root=root
+        )
+    except deployment_state_manager.UnknownEnvironmentError as e:
+        _fail(str(e), EXIT_NOT_FOUND)
+    except deployment_state_manager.PreconditionError as e:
+        _fail(str(e), EXIT_VALIDATION)
+    console.print(
+        f"[green]✓[/green] {env} → [bold]{bundle_id}[/bold] "
+        f"(activated {dep.activated_at})"
+    )
+
+
+@app.command("deploy-to-dev")
+def deploy_to_dev_cmd(
+    bundle_id: str = typer.Argument(...),
+    notes: str | None = typer.Option(None, "--notes"),
+) -> None:
+    _deploy("dev", bundle_id, notes)
+
+
+@app.command("deploy-to-prod")
+def deploy_to_prod_cmd(
+    bundle_id: str = typer.Argument(...),
+    notes: str | None = typer.Option(None, "--notes"),
+) -> None:
+    _deploy("prod", bundle_id, notes)
+
+
+@app.command("undeploy")
+def undeploy_cmd(
+    env: str = typer.Option(..., "--env"),
+    reason: str | None = typer.Option(None, "--reason"),
+) -> None:
+    root = _root_or_fail()
+    try:
+        deployment_state_manager.undeploy(env, reason=reason, root=root)
+    except deployment_state_manager.UnknownEnvironmentError as e:
+        _fail(str(e), EXIT_NOT_FOUND)
+    console.print(f"[yellow]✗[/yellow] Undeployed {env}")
+
+
+@app.command("show-deployment-history")
+def show_deployment_history_cmd(
+    env: str | None = typer.Option(None, "--env"),
+    bundle: str | None = typer.Option(None, "--bundle"),
+) -> None:
+    root = _root_or_fail()
+    events = deployment_state_manager.history(env=env, bundle_id=bundle, root=root)
+    if not events:
+        console.print("[dim](no events)[/dim]")
+        return
+    table = Table(show_header=True, header_style="bold")
+    for col in ("EVENT_ID", "ENV", "ACTION", "BUNDLE", "PREVIOUS", "AT"):
+        table.add_column(col)
+    for e in events:
+        table.add_row(e.event_id, e.env, e.action,
+                      e.bundle_id or "—", e.previous_bundle_id or "—", e.at)
+    console.print(table)
+
+
 if __name__ == "__main__":
     app()
