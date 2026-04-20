@@ -1,5 +1,10 @@
+"""Runtime plane: synchronous single-shot invocation of a resolved
+bundle. Applies input policy → retrieval → prompt render → model
+generate → output policy → contract validation, then logs request
+telemetry to DuckDB. Never mutates registry state."""
 from __future__ import annotations
 
+import json
 import secrets
 import time
 from datetime import datetime, timezone
@@ -10,6 +15,35 @@ from pydantic import BaseModel
 
 from .. import db, runtime_resolver
 from ..storage import find_workbench_root
+
+
+def _safe_json(obj: Any) -> str:
+    try:
+        return json.dumps(obj, ensure_ascii=False, default=str)
+    except Exception:
+        return json.dumps({"error": "unserialisable"})
+
+
+def _validate_output(text: str, contract) -> str | None:
+    """Return contract violation message if any; else None."""
+    if contract.min_output_chars and len(text) < contract.min_output_chars:
+        return (f"output below contract min_output_chars="
+                f"{contract.min_output_chars}")
+    if contract.max_output_chars and len(text) > contract.max_output_chars:
+        return (f"output exceeds contract max_output_chars="
+                f"{contract.max_output_chars}")
+    if contract.required_output_keys:
+        try:
+            parsed = json.loads(text)
+        except Exception:
+            return "output not parseable as JSON; contract requires keys"
+        if not isinstance(parsed, dict):
+            return "output JSON is not an object"
+        missing = [k for k in contract.required_output_keys
+                   if k not in parsed]
+        if missing:
+            return f"output missing required keys: {missing}"
+    return None
 
 
 class InvokeResult(BaseModel):
@@ -61,6 +95,7 @@ def invoke(
     output_text = ""
     context_dicts: list[dict] = []
 
+    contract = rr.bundle.components.contract
     try:
         input_body = str(user_input.get("question") or user_input.get("input") or user_input)
         pre = rr.policy.check_input(input_body)
@@ -74,13 +109,27 @@ def invoke(
             passages = rr.retrieval.retrieve(input_body, {"top_k": 5})
             context_dicts = [p.model_dump() for p in passages]
             prompt = _render(rr.prompt_template, safe_input, context_dicts)
-            result = rr.model.generate(prompt, rr.bundle.components.model.params)
-            post = rr.policy.check_output(result.text)
-            if not post.allowed:
-                policy_action = post.action
-                output_text = post.transformed_text
+            # Contract: prompt size bound (pre-LLM boundary)
+            if contract.max_prompt_chars and len(prompt) > contract.max_prompt_chars:
+                policy_action = "input_block"
+                output_text = (f"prompt exceeds contract "
+                               f"max_prompt_chars={contract.max_prompt_chars}")
             else:
-                output_text = result.text
+                result = rr.model.generate(
+                    prompt, rr.bundle.components.model.params
+                )
+                post = rr.policy.check_output(result.text)
+                if not post.allowed:
+                    policy_action = post.action
+                    output_text = post.transformed_text
+                else:
+                    # Contract: output bounds + schema (post-LLM boundary)
+                    contract_err = _validate_output(result.text, contract)
+                    if contract_err:
+                        policy_action = "output_block"
+                        output_text = contract_err
+                    else:
+                        output_text = result.text
     except Exception as e:
         error = f"{type(e).__name__}: {e}"
 
@@ -93,8 +142,8 @@ def invoke(
             "env": env,
             "bundle_id": rr.bundle.bundle_id,
             "request_at": datetime.now(timezone.utc),
-            "input": None,
-            "output": None,
+            "input": _safe_json(user_input),
+            "output": _safe_json({"text": output_text}),
             "latency_ms": int(latency_ms),
             "policy_action": policy_action,
             "error": error,

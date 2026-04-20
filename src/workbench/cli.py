@@ -18,6 +18,7 @@ from . import (
     evidence_pack,
     experiment_runner,
     lineage,
+    prod_eval,
     promotion_engine,
     runtime_compare,
     runtime_resolver,
@@ -611,6 +612,47 @@ def doctor_cmd(
         console.print(f"[{colour}]{i.severity:<5s}[/{colour}] {i.check}: {i.message}")
         if i.fix:
             console.print(f"      fix: {i.fix}")
+
+
+# ---------------------------------------------------------------------------
+# 3.2 — Production eval loop
+# ---------------------------------------------------------------------------
+
+
+@app.command("sample-production")
+def sample_production_cmd(
+    env: str = typer.Option(..., "--env"),
+    since_hours: float = typer.Option(24.0, "--since-hours"),
+    limit: int = typer.Option(100, "--limit"),
+    output: Path | None = typer.Option(None, "--output"),
+) -> None:
+    """Dump recent inference_requests as an eval-set JSONL."""
+    root = _root_or_fail()
+    out = prod_eval.sample_production(
+        env, since_hours=since_hours, limit=limit, output=output, root=root
+    )
+    console.print(f"[green]✓[/green] Wrote {out}")
+
+
+@app.command("drift-check")
+def drift_check_cmd(
+    env: str = typer.Option(..., "--env"),
+    recent_hours: float = typer.Option(1.0, "--recent-hours"),
+    baseline_hours: float = typer.Option(24.0, "--baseline-hours"),
+) -> None:
+    """Compare latest window against baseline for env's active bundle."""
+    root = _root_or_fail()
+    try:
+        report = prod_eval.drift_check(
+            env, recent_hours=recent_hours,
+            baseline_hours=baseline_hours, root=root,
+        )
+    except ValueError as e:
+        _fail(str(e), EXIT_NOT_FOUND)
+    console.print_json(data=report.model_dump(mode="json"))
+    if report.drifted:
+        console.print(f"[red]⚠ drift detected[/red]: "
+                      f"{', '.join(report.drift_reasons)}")
 
 
 # ---------------------------------------------------------------------------

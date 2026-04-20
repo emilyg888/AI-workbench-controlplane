@@ -1,3 +1,5 @@
+"""Runtime plane: per-bundle serving stats pulled from DuckDB
+``inference_requests``. Read-only."""
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone

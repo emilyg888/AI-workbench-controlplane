@@ -1,3 +1,5 @@
+"""Runtime plane: FastAPI HTTP surface over ``serving.invoke``. Read-only
+against the registry; does not mutate."""
 from __future__ import annotations
 
 import os

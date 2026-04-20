@@ -497,3 +497,31 @@ If you want the most efficient coding order:
 7. cli.py
 
 That order keeps dependencies simple and gets you to a working MVP fastest.
+
+Summary
+PR: emilyg888/AI-workbench-controlplane#1 — 9 commits (one per phase + cleanup)
+
+Phase	Delivered
+1	Registry + state machine + 6 CLI cmds
+2	experiment_runner + adapter protocol + stubs + DuckDB runs, 3 cmds
+3	6 scorers + scorecard + comparison + auto-transition to evaluated, 3 cmds
+4	Promotion engine + rejected state + append-only log + per-run evidence, 4 cmds
+5	Full deployment manager + preconditions + dwell + history + injectable clock, 4 cmds
+6	Runtime resolver + Ollama (respx-mocked) + Chroma (lazy) + policy enforcer + FastAPI, 3 cmds
+7	Shadow/traffic-split + rollback + lineage + evidence pack + doctor + runtime compare, 5 cmds
+8	Streamlit UI (6 pages) + workbench ui + AppTest + no-logic-leak assertion
+154 tests pass · ruff clean · 75% overall coverage (80–100% on core).
+
+Claude Code - Honest calibration from this session:
+
+Phase 1 (spec said 9 h, human dev time) — I finished it in maybe 15–20 min wall-clock.
+Phase 6 (spec said 15.5 h, heaviest phase) — maybe 25–35 min wall-clock.
+Whole series (phases 1–8, spec total ~95 h) was a single session, probably 2–3 hours of real wall-clock and low six-figures of tokens (rough guess — 200–400k).
+So re-scaled to agent units, the proposed fixes are roughly:
+
+Patching Wall clock	Rough token budget
+3.1 snapshot-on-approval	15–30 min	~30–60k
+3.3 policy-based promotion	8–15 min	~15–30k
+3.2 prod eval loop	15–30 min	~30–60k
+3.4 plane split (refactor)	20–40 min	~40–80k
+3.5 LLM contract	5–10 min	~10–20k

@@ -34,6 +34,8 @@ class CheckResult(BaseModel):
 class Checks(BaseModel):
     thresholds: dict[str, CheckResult] = Field(default_factory=dict)
     regression: dict[str, Any] = Field(default_factory=dict)
+    must_pass: list[dict] = Field(default_factory=list)
+    guardrails: dict[str, Any] = Field(default_factory=dict)
 
 
 class PromotionDecision(BaseModel):
@@ -116,6 +118,89 @@ def _latest_metrics_for_bundle(root: Path, bundle_id: str) -> dict | None:
         return None
     candidates.sort(key=lambda t: t[0], reverse=True)
     return candidates[0][1]
+
+
+_MUST_PASS_RE = __import__("re").compile(
+    r"^\s*(\w+)\s*(==|!=|>=|<=|>|<)\s*([-+\d.]+|true|false)\s*$",
+    flags=__import__("re").IGNORECASE,
+)
+
+
+def _check_must_pass(
+    metrics: dict, rules: PromotionRules
+) -> tuple[list[dict], bool]:
+    """Evaluate ``must_pass`` expressions. Any failure = reject."""
+    violations: list[dict] = []
+    scores = metrics.get("scores", {})
+    for expr in rules.must_pass:
+        m = _MUST_PASS_RE.match(expr)
+        if not m:
+            violations.append({"expr": expr, "error": "unparseable"})
+            continue
+        metric, op, raw = m.group(1), m.group(2), m.group(3).lower()
+        value = metrics.get("aggregate") if metric == "aggregate" else scores.get(metric)
+        target: float | bool
+        if raw in ("true", "false"):
+            target = raw == "true"
+        else:
+            target = float(raw)
+        ok = _compare(value, op, target)
+        if not ok:
+            violations.append({
+                "expr": expr, "metric": metric, "value": value,
+                "op": op, "target": target,
+            })
+    return violations, not violations
+
+
+def _compare(lhs, op: str, rhs) -> bool:
+    if lhs is None:
+        return False
+    if op == "==":
+        return lhs == rhs
+    if op == "!=":
+        return lhs != rhs
+    if op == ">=":
+        return lhs >= rhs
+    if op == "<=":
+        return lhs <= rhs
+    if op == ">":
+        return lhs > rhs
+    if op == "<":
+        return lhs < rhs
+    return False
+
+
+def _check_guardrails(
+    run_id: str | None, rules: PromotionRules, root: Path,
+) -> tuple[dict[str, int], list[dict], bool]:
+    """Count per-tag failures using metrics_per_item.jsonl + inputs.jsonl tags."""
+    if not rules.guardrails.max_failures_per_tag or run_id is None:
+        return {}, [], True
+    rd = root / "runs" / run_id
+    per_item_path = rd / "metrics_per_item.jsonl"
+    inputs_path = rd / "inputs.jsonl"
+    if not per_item_path.exists() or not inputs_path.exists():
+        return {}, [], True
+    from .storage import read_jsonl
+    tag_map: dict[str, list[str]] = {}
+    for rec in read_jsonl(inputs_path):
+        iid = rec.get("input_id")
+        tag_map[iid] = list(rec.get("tags") or [])
+    failures_by_tag: dict[str, int] = {}
+    for rec in read_jsonl(per_item_path):
+        if rec.get("value") != 0.0:
+            continue
+        for tag in tag_map.get(rec.get("input_id"), []):
+            failures_by_tag[tag] = failures_by_tag.get(tag, 0) + 1
+    violations: list[dict] = []
+    for tag, cap in rules.guardrails.max_failures_per_tag.items():
+        seen = failures_by_tag.get(tag, 0)
+        if seen > cap:
+            violations.append({
+                "tag": tag, "failures": seen, "cap": cap,
+            })
+    return failures_by_tag, violations, not violations
 
 
 def _check_thresholds(
@@ -232,11 +317,17 @@ def propose(
     bundle_id = metrics["bundle_id"]
 
     rules = load_rules(rules_profile, root=root)
+    mp_violations, mp_ok = _check_must_pass(metrics, rules)
+    gr_counts, gr_violations, gr_ok = _check_guardrails(run_id, rules, root)
     thresholds, thr_ok = _check_thresholds(metrics, rules)
     _, _, baseline = _baseline_metrics(root, rules)
     regression, reg_ok = _check_regression(metrics, baseline, rules)
 
-    passes_gate = thr_ok and reg_ok
+    passes_gate = mp_ok and gr_ok and thr_ok and reg_ok
+    guardrails_info = {
+        "failures_by_tag": gr_counts,
+        "violations": gr_violations,
+    }
 
     bundle = bundle_manager.get_bundle(bundle_id, root=root)
 
@@ -259,6 +350,8 @@ def propose(
             bundle_manager.transition_bundle(
                 bundle_id, BundleState.APPROVED, root=root
             )
+            # Freeze component contents at approval time (3.1 snapshot)
+            bundle_manager.snapshot_bundle(bundle_id, root=root)
             result = "approved"
 
     decision = PromotionDecision(
@@ -268,7 +361,12 @@ def propose(
         decided_at=utcnow_iso(),
         rules_profile=rules_tag(rules),
         result=result,
-        checks=Checks(thresholds=thresholds, regression=regression),
+        checks=Checks(
+            thresholds=thresholds,
+            regression=regression,
+            must_pass=mp_violations,
+            guardrails=guardrails_info,
+        ),
         approver="auto",
         notes=None,
     )
@@ -285,6 +383,7 @@ def approve(
     bundle = bundle_manager.get_bundle(bundle_id, root=root)
     assert_transition(bundle.state, BundleState.APPROVED)
     bundle_manager.transition_bundle(bundle_id, BundleState.APPROVED, root=root)
+    bundle_manager.snapshot_bundle(bundle_id, root=root)
     decision = PromotionDecision(
         decision_id=_new_decision_id(bundle_id),
         bundle_id=bundle_id,

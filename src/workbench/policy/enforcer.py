@@ -1,3 +1,6 @@
+"""Runtime plane: deterministic policy enforcement at the input and
+output seams around the LLM. Pure function of text + rules; never
+mutates registry state."""
 from __future__ import annotations
 
 import re
@@ -22,13 +25,21 @@ def _load_pack(path: Path) -> dict[str, Any]:
 
 
 class PolicyEnforcer:
-    def __init__(self, pack_ref: str, root: Path | None = None) -> None:
+    def __init__(
+        self,
+        pack_ref: str,
+        root: Path | None = None,
+        frozen_rules: dict[str, Any] | None = None,
+    ) -> None:
         self.pack_ref = pack_ref
         self.root = root or Path.cwd()
-        p = Path(pack_ref)
-        if not p.is_absolute():
-            p = self.root / p
-        pack = _load_pack(p)
+        if frozen_rules is not None:
+            pack = frozen_rules
+        else:
+            p = Path(pack_ref)
+            if not p.is_absolute():
+                p = self.root / p
+            pack = _load_pack(p)
         self.input_rules = list(pack.get("input_rules") or [])
         self.output_rules = list(pack.get("output_rules") or [])
 

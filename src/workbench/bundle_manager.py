@@ -88,6 +88,30 @@ def list_bundles(
     return bundles
 
 
+def snapshot_bundle(
+    bundle_id: str, root: Path | None = None, strict: bool = False
+) -> Bundle:
+    """Freeze live ``*_ref`` contents into ``bundle.resolved``. Idempotent.
+
+    Called by the promotion engine at approval time. Safe to call again
+    at any point; the latest snapshot replaces the previous one.
+    """
+    root = root or find_workbench_root()
+    from .snapshot import snapshot_components
+    bundles = _load_all(root)
+    for i, b in enumerate(bundles):
+        if b.bundle_id == bundle_id:
+            resolved = snapshot_components(b, root=root, strict=strict)
+            updated = b.model_copy(update={
+                "resolved": resolved,
+                "updated_at": utcnow_iso(),
+            })
+            bundles[i] = updated
+            _save_all(root, bundles)
+            return updated
+    raise BundleNotFoundError(f"Bundle {bundle_id!r} not found")
+
+
 def transition_bundle(
     bundle_id: str,
     new_state: BundleState | str,

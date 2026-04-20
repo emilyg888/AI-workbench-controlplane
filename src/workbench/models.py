@@ -57,12 +57,31 @@ class LayerRef(BaseModel):
     ref: str | None = None
 
 
+class ModelContract(BaseModel):
+    """Declarative seams around the LLM. Optional — absence = no validation.
+
+    Enforced by ``serving/invoke.py``:
+
+    - ``max_prompt_chars``: cap on rendered prompt size before ``generate``.
+    - ``min_output_chars`` / ``max_output_chars``: sanity bounds on raw text.
+    - ``required_output_keys``: if set, output is parsed as JSON and all
+      keys must be present; failure is recorded with ``policy_action=
+      "output_block"``.
+    """
+
+    max_prompt_chars: int | None = None
+    min_output_chars: int | None = None
+    max_output_chars: int | None = None
+    required_output_keys: list[str] = Field(default_factory=list)
+
+
 class BundleComponents(BaseModel):
     model: ModelSpec
     prompt: PromptSpec
     retrieval: RetrievalSpec
     policy: PolicySpec
     evaluation: EvaluationSpec
+    contract: ModelContract = Field(default_factory=ModelContract)
     semantic_layer: LayerRef = Field(default_factory=LayerRef)
     signal_layer: LayerRef = Field(default_factory=LayerRef)
 
@@ -70,6 +89,24 @@ class BundleComponents(BaseModel):
 class Lineage(BaseModel):
     parent_bundle_id: str | None = None
     notes: str | None = None
+
+
+class ResolvedComponents(BaseModel):
+    """Frozen snapshot of the bundle's component contents, materialised at
+    approval time. Once set, runtime reads from here instead of chasing live
+    ``*_ref`` pointers — so the bundle cannot drift silently if underlying
+    files change.
+    """
+
+    resolved_at: str
+    prompt_text: str | None = None
+    policy_rules: dict[str, Any] = Field(default_factory=dict)
+    retrieval_config: dict[str, Any] = Field(default_factory=dict)
+    scoring_profile: dict[str, Any] = Field(default_factory=dict)
+    semantic_layer: dict[str, Any] | None = None
+    signal_layer: dict[str, Any] | None = None
+    # sha256 of each source file, keyed by arcname.
+    hashes: dict[str, str] = Field(default_factory=dict)
 
 
 class Bundle(BaseModel):
@@ -81,6 +118,7 @@ class Bundle(BaseModel):
     updated_at: str
     created_by: str = "local-user"
     components: BundleComponents
+    resolved: ResolvedComponents | None = None
     lineage: Lineage = Field(default_factory=Lineage)
     schema_version: str = "1"
 

@@ -1,3 +1,9 @@
+"""Runtime plane: resolve the active bundle for an env into an
+executable runtime (model + retrieval + policy + prompt).
+
+See docs/PLANES.md. Reads the registry via ``bundle_manager.get_bundle``
+and ``deployment_state_manager.get_active_full``; never mutates.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -47,6 +53,13 @@ def _load_prompt(root: Path, ref: str) -> str:
     return "Answer the question. If context is provided, use it."
 
 
+def _prompt_from_bundle(root: Path, bundle: Bundle) -> str:
+    """Prefer snapshotted prompt_text; fall back to live ``template_ref``."""
+    if bundle.resolved and bundle.resolved.prompt_text is not None:
+        return bundle.resolved.prompt_text
+    return _load_prompt(root, bundle.components.prompt.template_ref)
+
+
 def resolve(env: str, root: Path | None = None) -> ResolvedRuntime:
     root = root or find_workbench_root()
     dep = deployment_state_manager.get_active_full(env, root=root)
@@ -73,8 +86,13 @@ def resolve(env: str, root: Path | None = None) -> ResolvedRuntime:
     retrieval = get_retrieval_adapter(
         bundle.components.retrieval.profile_ref, root=root
     )
-    policy = PolicyEnforcer(bundle.components.policy.pack_ref, root=root)
-    prompt_template = _load_prompt(root, bundle.components.prompt.template_ref)
+    policy = PolicyEnforcer(
+        bundle.components.policy.pack_ref,
+        root=root,
+        frozen_rules=(bundle.resolved.policy_rules
+                      if bundle.resolved else None),
+    )
+    prompt_template = _prompt_from_bundle(root, bundle)
 
     resolved = ResolvedRuntime(
         env=env,
@@ -100,8 +118,13 @@ def _build_runtime_for_bundle(bundle: Bundle, root: Path) -> ResolvedRuntime:
     retrieval = get_retrieval_adapter(
         bundle.components.retrieval.profile_ref, root=root
     )
-    policy = PolicyEnforcer(bundle.components.policy.pack_ref, root=root)
-    prompt = _load_prompt(root, bundle.components.prompt.template_ref)
+    policy = PolicyEnforcer(
+        bundle.components.policy.pack_ref,
+        root=root,
+        frozen_rules=(bundle.resolved.policy_rules
+                      if bundle.resolved else None),
+    )
+    prompt = _prompt_from_bundle(root, bundle)
     return ResolvedRuntime(
         env="challenger",
         bundle=bundle,
