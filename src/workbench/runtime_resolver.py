@@ -10,6 +10,7 @@ from .adapters.registry import (
     get_retrieval_adapter,
     try_register_ollama,
 )
+from .environments import load_environments
 from .models import Bundle
 from .policy.enforcer import PolicyEnforcer
 from .storage import find_workbench_root
@@ -86,3 +87,48 @@ def resolve(env: str, root: Path | None = None) -> ResolvedRuntime:
     )
     _CACHE[env] = (key, resolved)
     return resolved
+
+
+def _build_runtime_for_bundle(bundle: Bundle, root: Path) -> ResolvedRuntime:
+    try_register_ollama()
+    model = get_model_adapter(
+        {"provider": bundle.components.model.provider,
+         "name": bundle.components.model.name,
+         **bundle.components.model.params},
+        root=root,
+    )
+    retrieval = get_retrieval_adapter(
+        bundle.components.retrieval.profile_ref, root=root
+    )
+    policy = PolicyEnforcer(bundle.components.policy.pack_ref, root=root)
+    prompt = _load_prompt(root, bundle.components.prompt.template_ref)
+    return ResolvedRuntime(
+        env="challenger",
+        bundle=bundle,
+        model=model,
+        retrieval=retrieval,
+        policy=policy,
+        prompt_template=prompt,
+        activated_at=None,
+    )
+
+
+def challenger_config(env: str, root: Path | None = None) -> dict | None:
+    root = root or find_workbench_root()
+    envs = load_environments(root)
+    cfg = envs.get(env)
+    if cfg is None:
+        return None
+    return cfg.extras.get("challenger")
+
+
+def resolve_challenger(env: str, root: Path | None = None) -> ResolvedRuntime | None:
+    root = root or find_workbench_root()
+    cfg = challenger_config(env, root=root)
+    if not cfg or not cfg.get("enabled"):
+        return None
+    bundle_id = cfg.get("bundle_id")
+    if not bundle_id:
+        return None
+    bundle = bundle_manager.get_bundle(bundle_id, root=root)
+    return _build_runtime_for_bundle(bundle, root)

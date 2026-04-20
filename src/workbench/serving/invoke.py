@@ -38,8 +38,23 @@ def _render(template: str, user_input: dict, context: list[dict]) -> str:
 def invoke(
     env: str, user_input: dict[str, Any], root: Path | None = None
 ) -> InvokeResult:
-    rr = runtime_resolver.resolve(env, root=root)
+    champion = runtime_resolver.resolve(env, root=root)
+    challenger_cfg = runtime_resolver.challenger_config(env, root=root)
+    challenger = runtime_resolver.resolve_challenger(env, root=root)
     trace_id = _new_trace_id()
+
+    serving_rr = champion
+    if challenger and challenger_cfg:
+        mode = challenger_cfg.get("mode", "shadow")
+        if mode == "traffic_split":
+            frac = float(challenger_cfg.get("traffic_fraction", 0.0))
+            import hashlib as _h
+            bucket = int(_h.md5(trace_id.encode()).hexdigest(), 16) % 100
+            if bucket < int(frac * 100):
+                serving_rr = challenger
+        # shadow mode: champion serves, challenger run async-ish below
+
+    rr = serving_rr
     t0 = time.perf_counter_ns()
     error: str | None = None
     policy_action = "allow"
@@ -88,6 +103,20 @@ def invoke(
     except Exception:
         pass
 
+    # Shadow-mode: invoke challenger synchronously (local-first = no threads),
+    # log the response, keep serving champion's output. Challenger errors are
+    # isolated from the user path.
+    if (
+        challenger
+        and challenger_cfg
+        and challenger_cfg.get("mode", "shadow") == "shadow"
+        and serving_rr is champion
+    ):
+        try:
+            _shadow_invoke(env, challenger, user_input, trace_id, root=root)
+        except Exception:
+            pass
+
     return InvokeResult(
         output=output_text,
         context=context_dicts,
@@ -97,3 +126,45 @@ def invoke(
         policy_action=policy_action,
         error=error,
     )
+
+
+def _shadow_invoke(
+    env: str, rr: "runtime_resolver.ResolvedRuntime",
+    user_input: dict, trace_id: str, root: Path | None,
+) -> None:
+    t0 = time.perf_counter_ns()
+    error = None
+    action = "allow"
+    text = ""
+    try:
+        body = str(user_input.get("question") or user_input.get("input") or user_input)
+        pre = rr.policy.check_input(body)
+        if not pre.allowed:
+            action, text = pre.action, pre.transformed_text
+        else:
+            passages = rr.retrieval.retrieve(body, {"top_k": 5})
+            ctx = [p.model_dump() for p in passages]
+            prompt = _render(rr.prompt_template, user_input, ctx)
+            result = rr.model.generate(prompt, rr.bundle.components.model.params)
+            post = rr.policy.check_output(result.text)
+            action = post.action
+            text = post.transformed_text if not post.allowed else result.text
+    except Exception as e:
+        error = f"{type(e).__name__}: {e}"
+    latency_ms = max(1, (time.perf_counter_ns() - t0) // 1_000_000)
+    try:
+        con = db.connect(root or find_workbench_root())
+        db.insert_inference(con, {
+            "trace_id": trace_id + "_shadow",
+            "env": env,
+            "bundle_id": rr.bundle.bundle_id,
+            "request_at": datetime.now(timezone.utc),
+            "input": None, "output": None,
+            "latency_ms": int(latency_ms),
+            "policy_action": action,
+            "error": error,
+        })
+        con.close()
+    except Exception:
+        pass
+    _ = text  # unused — we don't surface shadow output

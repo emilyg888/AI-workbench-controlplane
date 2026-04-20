@@ -13,9 +13,14 @@ from . import (
     comparison,
     db,
     deployment_state_manager,
+    doctor,
     evaluation_engine,
+    evidence_pack,
     experiment_runner,
+    lineage,
     promotion_engine,
+    rollback as rollback_mod,
+    runtime_compare,
     runtime_resolver,
 )
 from .serving.invoke import invoke as _do_invoke
@@ -516,6 +521,94 @@ def active_runtime_cmd(
         "model": rr.model.name,
         "retrieval": rr.retrieval.name,
     })
+
+
+# ---------------------------------------------------------------------------
+# Phase 7: comparison & governance hardening
+# ---------------------------------------------------------------------------
+
+
+@app.command("rollback")
+def rollback_cmd(
+    env: str = typer.Option(..., "--env"),
+    to: str | None = typer.Option(None, "--to"),
+    reason: str | None = typer.Option(None, "--reason"),
+) -> None:
+    root = _root_or_fail()
+    try:
+        dep = rollback_mod.rollback(env, to=to, reason=reason, root=root)
+    except rollback_mod.RollbackError as e:
+        _fail(str(e), EXIT_VALIDATION)
+    console.print(
+        f"[green]✓[/green] Rolled back {env} → {dep.active_bundle_id}"
+    )
+
+
+@app.command("lineage")
+def lineage_cmd(
+    bundle_id: str = typer.Argument(...),
+    dot: bool = typer.Option(False, "--dot"),
+) -> None:
+    root = _root_or_fail()
+    try:
+        text = lineage.dot(bundle_id, root=root) if dot else lineage.tree(
+            bundle_id, root=root
+        )
+    except KeyError as e:
+        _fail(str(e), EXIT_NOT_FOUND)
+    console.print(text, highlight=False)
+
+
+@app.command("evidence-pack")
+def evidence_pack_cmd(
+    decision_id: str = typer.Argument(...),
+    output: Path = typer.Option(..., "--output"),
+) -> None:
+    root = _root_or_fail()
+    try:
+        path = evidence_pack.build(decision_id, output, root=root)
+    except evidence_pack.EvidencePackError as e:
+        _fail(str(e), EXIT_NOT_FOUND)
+    console.print(f"[green]✓[/green] Wrote {path}")
+
+
+@app.command("compare-bundles")
+def compare_bundles_cmd(
+    env: str = typer.Option(..., "--env"),
+    window: float = typer.Option(24.0, "--window", help="window in hours"),
+    champion: str | None = typer.Option(None, "--champion"),
+    challenger: str | None = typer.Option(None, "--challenger"),
+) -> None:
+    root = _root_or_fail()
+    if champion is None:
+        dep = deployment_state_manager.get_active_full(env, root=root)
+        champion = dep.active_bundle_id
+    if champion is None:
+        _fail(f"no champion specified and no active bundle in {env}", EXIT_VALIDATION)
+    if challenger is None:
+        cfg = runtime_resolver.challenger_config(env, root=root) or {}
+        challenger = cfg.get("bundle_id")
+    report = runtime_compare.compare_env(
+        env, champion, challenger, window_hours=window, root=root
+    )
+    console.print_json(data=report.model_dump(mode="json"))
+
+
+@app.command("doctor")
+def doctor_cmd(
+    fix: bool = typer.Option(False, "--fix"),
+    yes: bool = typer.Option(False, "--yes"),
+) -> None:
+    root = _root_or_fail()
+    report = doctor.run_doctor(root=root, fix=fix, yes=yes)
+    if not report.issues:
+        console.print("[green]✓[/green] All checks pass")
+        return
+    for i in report.issues:
+        colour = {"error": "red", "warn": "yellow", "info": "dim"}[i.severity]
+        console.print(f"[{colour}]{i.severity:<5s}[/{colour}] {i.check}: {i.message}")
+        if i.fix:
+            console.print(f"      fix: {i.fix}")
 
 
 if __name__ == "__main__":
