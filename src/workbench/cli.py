@@ -16,7 +16,9 @@ from . import (
     evaluation_engine,
     experiment_runner,
     promotion_engine,
+    runtime_resolver,
 )
+from .serving.invoke import invoke as _do_invoke
 from .models import BundleState
 from .state_machine import InvalidTransitionError
 from .storage import ensure_registry_files, find_workbench_root, read_json
@@ -452,6 +454,68 @@ def show_deployment_history_cmd(
         table.add_row(e.event_id, e.env, e.action,
                       e.bundle_id or "—", e.previous_bundle_id or "—", e.at)
     console.print(table)
+
+
+# ---------------------------------------------------------------------------
+# Phase 6: runtime integration
+# ---------------------------------------------------------------------------
+
+
+@app.command("invoke")
+def invoke_cmd(
+    env: str = typer.Option(..., "--env"),
+    input: str = typer.Option(..., "--input", help="JSON string, e.g. '{\"question\": \"...\"}'"),
+) -> None:
+    root = _root_or_fail()
+    try:
+        payload = json.loads(input)
+    except json.JSONDecodeError as e:
+        _fail(f"invalid JSON in --input: {e}", EXIT_VALIDATION)
+    try:
+        result = _do_invoke(env, payload, root=root)
+    except runtime_resolver.NoActiveBundleError as e:
+        _fail(str(e), EXIT_NOT_FOUND)
+    console.print_json(data=result.model_dump(mode="json"))
+
+
+@app.command("serve")
+def serve_cmd(
+    env: str = typer.Option(..., "--env"),
+    port: int = typer.Option(8080, "--port"),
+    host: str = typer.Option("127.0.0.1", "--host"),
+) -> None:
+    root = _root_or_fail()
+    try:
+        rr = runtime_resolver.resolve(env, root=root)
+    except runtime_resolver.NoActiveBundleError as e:
+        _fail(str(e), EXIT_NOT_FOUND)
+    console.print(
+        f"✓ Resolving active bundle for env={env}\n"
+        f"✓ Active: {rr.bundle.bundle_id} (activated {rr.activated_at})\n"
+        f"✓ Model adapter: {rr.model.name} (model={rr.bundle.components.model.name})\n"
+        f"✓ Retrieval adapter: {rr.retrieval.name}\n"
+        f"✓ Listening on http://{host}:{port}"
+    )
+    from .serving.http import run_server
+    run_server(env, host=host, port=port, root=root)
+
+
+@app.command("active-runtime")
+def active_runtime_cmd(
+    env: str = typer.Option("dev", "--env"),
+) -> None:
+    root = _root_or_fail()
+    try:
+        rr = runtime_resolver.resolve(env, root=root)
+    except runtime_resolver.NoActiveBundleError as e:
+        _fail(str(e), EXIT_NOT_FOUND)
+    console.print_json(data={
+        "env": env,
+        "bundle_id": rr.bundle.bundle_id,
+        "activated_at": rr.activated_at,
+        "model": rr.model.name,
+        "retrieval": rr.retrieval.name,
+    })
 
 
 if __name__ == "__main__":
