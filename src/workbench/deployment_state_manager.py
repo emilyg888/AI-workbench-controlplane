@@ -4,11 +4,11 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Callable
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from .bundle_manager import get_bundle, transition_bundle
 from .environments import Environment, load_environments
-from .models import BundleState, Deployment, utcnow_iso
+from .models import BundleState, Deployment
 from .state_machine import InvalidTransitionError
 from .storage import find_workbench_root, read_json, write_json_atomic
 
@@ -50,7 +50,11 @@ class FullDeployment(BaseModel):
 
 
 # Injectable clock for tests.
-_clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc)
+def _default_clock() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+_clock: Callable[[], datetime] = _default_clock
 
 
 def set_clock(fn: Callable[[], datetime]) -> None:
@@ -60,7 +64,7 @@ def set_clock(fn: Callable[[], datetime]) -> None:
 
 def reset_clock() -> None:
     global _clock
-    _clock = lambda: datetime.now(timezone.utc)
+    _clock = _default_clock
 
 
 def _now_iso() -> str:

@@ -10,12 +10,12 @@ from pathlib import Path
 
 from .. import (
     bundle_manager,
+    db,
     deployment_state_manager,
     doctor,
     evidence_pack,
-    promotion_engine,
-    db,
     lineage,
+    promotion_engine,
 )
 from ..storage import find_workbench_root, read_json
 

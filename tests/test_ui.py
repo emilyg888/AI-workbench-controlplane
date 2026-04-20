@@ -6,10 +6,8 @@ import pytest
 
 from workbench import bundle_manager
 
-
 pytest.importorskip("streamlit")
 from streamlit.testing.v1 import AppTest  # noqa: E402
-
 
 UI_APP = str(
     Path(__file__).parent.parent / "src" / "workbench" / "ui" / "app.py"

@@ -7,7 +7,6 @@ import httpx
 
 from .base import ModelResult
 
-
 DEFAULT_BASE = "http://localhost:11434"
 
 

@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from . import bundle_manager, promotion_engine
-from .storage import find_workbench_root, read_json, sha256_file
+from .storage import find_workbench_root, sha256_file
 
 
 class EvidencePackError(RuntimeError):

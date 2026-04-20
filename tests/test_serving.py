@@ -2,13 +2,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
 from fastapi.testclient import TestClient
 
 from workbench import bundle_manager, db, deployment_state_manager, runtime_resolver
 from workbench.models import BundleState
-from workbench.serving.invoke import invoke as invoke_fn
 from workbench.serving.http import create_app
+from workbench.serving.invoke import invoke as invoke_fn
 
 
 def _deploy(workbench_root: Path, stub_bundle_spec: dict) -> str:

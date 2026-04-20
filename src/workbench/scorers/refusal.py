@@ -4,7 +4,6 @@ from typing import Any
 
 from .base import EvalExample, Prediction, ScorerResult, _by_id, register_scorer
 
-
 REFUSAL_PHRASES = (
     "i can't",
     "i cannot",

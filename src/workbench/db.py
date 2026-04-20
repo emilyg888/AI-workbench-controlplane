@@ -5,7 +5,6 @@ from typing import Any
 
 import duckdb
 
-
 RUNS_SCHEMA = """
 CREATE TABLE IF NOT EXISTS runs (
     run_id          VARCHAR PRIMARY KEY,

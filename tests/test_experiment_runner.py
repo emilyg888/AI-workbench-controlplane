@@ -25,7 +25,8 @@ def test_end_to_end_stub_run(
                  "timings.json", "run.log"):
         assert (result.run_dir / name).exists(), name
 
-    preds = [json.loads(l) for l in (result.run_dir / "predictions.jsonl").read_text().splitlines() if l]
+    raw = (result.run_dir / "predictions.jsonl").read_text().splitlines()
+    preds = [json.loads(line) for line in raw if line]
     assert len(preds) == 3
     assert all(p["error"] is None for p in preds)
     assert all(p["output"] is not None for p in preds)

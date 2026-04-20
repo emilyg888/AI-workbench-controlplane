@@ -20,7 +20,6 @@ from .storage import (
     write_jsonl,
 )
 
-
 METRIC_KEY_TO_DB_COLUMN = {
     "correctness": "correctness",
     "groundedness": "groundedness",

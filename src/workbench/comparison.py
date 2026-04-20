@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
-
 REGRESSION_THRESHOLD = 0.02
 
 

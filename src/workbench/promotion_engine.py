@@ -12,7 +12,6 @@ from .promotion_rules import PromotionRules, load_promotion_rules, rules_tag
 from .state_machine import InvalidTransitionError, assert_transition
 from .storage import find_workbench_root, read_json, write_json_atomic
 
-
 PROMO_LOG_PATH_REL = "registry/promotion_log.json"
 
 
@@ -124,8 +123,9 @@ def _check_thresholds(
 ) -> tuple[dict[str, CheckResult], bool]:
     out: dict[str, CheckResult] = {}
     all_pass = True
+    scores = metrics.get("scores", {})
     for name, th in rules.thresholds.items():
-        value = metrics.get("aggregate") if name == "aggregate" else metrics.get("scores", {}).get(name)
+        value = metrics.get("aggregate") if name == "aggregate" else scores.get(name)
         ok = value is not None and value >= th
         out[name] = CheckResult(value=value, threshold=th, **{"pass": bool(ok)})
         if not ok:

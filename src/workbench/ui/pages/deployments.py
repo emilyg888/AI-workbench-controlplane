@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import streamlit as st
 
-from ... import bundle_manager, deployment_state_manager, rollback as rb
+from ... import bundle_manager, deployment_state_manager
+from ... import rollback as rb
 from ...models import BundleState
 from .. import data
 

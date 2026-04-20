@@ -22,8 +22,8 @@ class NonEmptyScorer:
             1 for p in predictions
             if not p.error and (p.output or "").strip()
         )
-        per_item = [
-            {"input_id": p.input_id, "value": 1.0 if (not p.error and (p.output or "").strip()) else 0.0}
-            for p in predictions
-        ]
+        def _val(p):
+            return 1.0 if (not p.error and (p.output or "").strip()) else 0.0
+
+        per_item = [{"input_id": p.input_id, "value": _val(p)} for p in predictions]
         return ScorerResult(name=self.name, value=good / total, per_item=per_item)

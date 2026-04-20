@@ -1,4 +1,3 @@
-from .base import Prediction, ScorerResult, get_scorer, register_scorer
 from . import (  # noqa: F401 — side-effect imports register scorers
     exact_match,
     latency,
@@ -8,6 +7,7 @@ from . import (  # noqa: F401 — side-effect imports register scorers
     refusal,
     substring,
 )
+from .base import Prediction, ScorerResult, get_scorer, register_scorer
 
 __all__ = [
     "Prediction",

@@ -19,12 +19,14 @@ from . import (
     experiment_runner,
     lineage,
     promotion_engine,
-    rollback as rollback_mod,
     runtime_compare,
     runtime_resolver,
 )
-from .serving.invoke import invoke as _do_invoke
+from . import (
+    rollback as rollback_mod,
+)
 from .models import BundleState
+from .serving.invoke import invoke as _do_invoke
 from .state_machine import InvalidTransitionError
 from .storage import ensure_registry_files, find_workbench_root, read_json
 

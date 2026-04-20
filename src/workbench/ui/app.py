@@ -6,13 +6,22 @@ import streamlit as st
 from workbench.ui import data
 from workbench.ui.pages import (
     bundles as bundles_page,
+)
+from workbench.ui.pages import (
     compare as compare_page,
+)
+from workbench.ui.pages import (
     deployments as deployments_page,
+)
+from workbench.ui.pages import (
     home as home_page,
+)
+from workbench.ui.pages import (
     promotions as promotions_page,
+)
+from workbench.ui.pages import (
     runs as runs_page,
 )
-
 
 PAGES = {
     "Home": home_page.render,

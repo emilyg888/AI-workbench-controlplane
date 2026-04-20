@@ -5,7 +5,6 @@ from typing import Any
 
 from .base import EvalExample, Prediction, ScorerResult, register_scorer
 
-
 _TOKEN_RE = re.compile(r"\w+")
 
 
