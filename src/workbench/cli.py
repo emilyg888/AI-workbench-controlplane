@@ -611,5 +611,32 @@ def doctor_cmd(
             console.print(f"      fix: {i.fix}")
 
 
+# ---------------------------------------------------------------------------
+# Phase 8: UI
+# ---------------------------------------------------------------------------
+
+
+@app.command("ui")
+def ui_cmd(
+    port: int = typer.Option(8501, "--port"),
+    host: str = typer.Option("127.0.0.1", "--host"),
+) -> None:
+    """Launch the Streamlit dashboard."""
+    import subprocess
+    from pathlib import Path as _P
+    app_file = _P(__file__).parent / "ui" / "app.py"
+    console.print(
+        f"[green]✓[/green] Starting Streamlit on http://{host}:{port}\n"
+        f"  Workbench root: {find_workbench_root()}\n"
+        f"  Bound: {host}"
+    )
+    subprocess.run([
+        "streamlit", "run", str(app_file),
+        "--server.address", host,
+        "--server.port", str(port),
+        "--server.headless", "true",
+    ])
+
+
 if __name__ == "__main__":
     app()
