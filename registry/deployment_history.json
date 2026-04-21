@@ -20,5 +20,16 @@
     "by": "local-user",
     "promotion_decision_id": null,
     "notes": null
+  },
+  {
+    "event_id": "dep_20260420T235932Z_dev_activate",
+    "env": "dev",
+    "action": "activate",
+    "bundle_id": "copilot_champion_v2",
+    "previous_bundle_id": "copilot_champion_v1",
+    "at": "2026-04-20T23:59:32Z",
+    "by": "local-user",
+    "promotion_decision_id": null,
+    "notes": null
   }
 ]

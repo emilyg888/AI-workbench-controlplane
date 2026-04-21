@@ -5,7 +5,7 @@
     "min_dwell_before_next_env_hours": 0,
     "challenger": {
       "enabled": true,
-      "bundle_id": "copilot_challenger_v1",
+      "bundle_id": "copilot_challenger_v2",
       "mode": "shadow",
       "traffic_fraction": 0.0
     }

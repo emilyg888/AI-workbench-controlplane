@@ -269,9 +269,9 @@
     "bundle_id": "copilot_champion_v1",
     "name": "copilot_champion",
     "version": "1.0.0",
-    "state": "deployed",
+    "state": "approved",
     "created_at": "2026-04-20T23:43:34Z",
-    "updated_at": "2026-04-20T23:45:28Z",
+    "updated_at": "2026-04-20T23:59:32Z",
     "created_by": "local-user",
     "components": {
       "model": {
@@ -420,9 +420,9 @@
     "bundle_id": "copilot_challenger_v1",
     "name": "copilot_challenger",
     "version": "1.0.0",
-    "state": "draft",
+    "state": "archived",
     "created_at": "2026-04-20T23:43:34Z",
-    "updated_at": "2026-04-20T23:43:34Z",
+    "updated_at": "2026-04-20T23:58:09Z",
     "created_by": "local-user",
     "components": {
       "model": {
@@ -467,6 +467,211 @@
     "lineage": {
       "parent_bundle_id": "copilot_champion_v1",
       "notes": "Copilot challenger bundle. LM Studio qwen/qwen3.5-9b; same prompt + policy as champion \u2014 only the model differs."
+    },
+    "schema_version": "1"
+  },
+  {
+    "bundle_id": "copilot_champion_v2",
+    "name": "copilot_champion",
+    "version": "2.0.0",
+    "state": "deployed",
+    "created_at": "2026-04-20T23:58:09Z",
+    "updated_at": "2026-04-20T23:59:32Z",
+    "created_by": "local-user",
+    "components": {
+      "model": {
+        "name": "qwen2.5-14b-instruct",
+        "provider": "lmstudio",
+        "params": {
+          "temperature": 0.2,
+          "max_tokens": 2048,
+          "timeout_seconds": 90
+        }
+      },
+      "prompt": {
+        "template_ref": "data/prompts/copilot_v1.txt",
+        "version": "v1"
+      },
+      "retrieval": {
+        "profile_ref": "stub",
+        "version": "v1"
+      },
+      "policy": {
+        "pack_ref": "data/policies/copilot_policy.yaml",
+        "version": "v1"
+      },
+      "evaluation": {
+        "profile_ref": "configs/scoring_profile.yaml",
+        "version": "v1"
+      },
+      "contract": {
+        "max_prompt_chars": null,
+        "min_output_chars": null,
+        "max_output_chars": null,
+        "required_output_keys": []
+      },
+      "semantic_layer": {
+        "ref": null
+      },
+      "signal_layer": {
+        "ref": null
+      }
+    },
+    "resolved": {
+      "resolved_at": "2026-04-20T23:59:32Z",
+      "prompt_text": "You are a Governed Enterprise AI Data Copilot.\n\nMandatory rules:\n1. Certified Sources Only \u2014 answer only using CERTIFIED business glossary\n   terms and CERTIFIED semantic views.\n2. Glossary-First \u2014 if a glossary term exists, quote the definition\n   verbatim.\n3. Semantic Layer Boundary \u2014 do not access raw tables, invent joins, or\n   infer missing attributes.\n4. Explainability Required \u2014 every answer must include the source\n   semantic view, certification status, and data freshness.\n5. No Speculation \u2014 do not assign causality, guess intent, or extrapolate\n   beyond certified data.\n6. Refusal Is Mandatory \u2014 if a request cannot be satisfied safely,\n   refuse, explain why, and suggest certified alternatives.\n\nWhen a question asks for raw tables, customer-level details, causality\n(\"why did X happen\"), or subjective rankings (\"which customers are high\nvalue\"), reply with a brief refusal that begins: \"I cannot answer that.\"\n\nContext (certified semantic views and glossary):\n{context}\n\nQuestion:\n{input}\n\nReply with either:\n- a short, grounded answer that cites the semantic view, OR\n- a refusal beginning with \"I cannot answer that.\"\n",
+      "policy_rules": {
+        "version": "1",
+        "output_rules": [
+          {
+            "id": "no_raw_table_names",
+            "type": "regex_block",
+            "pattern": "\\braw_transactions\\b|\\bcustomer_pii\\b",
+            "action": "block",
+            "message": "I cannot answer that. The request would touch raw tables; please use a certified semantic view."
+          },
+          {
+            "id": "no_speculative_causality",
+            "type": "keyword_block",
+            "keywords": [
+              "the reason is probably",
+              "I think because",
+              "likely caused by"
+            ],
+            "action": "block",
+            "replacement": "I cannot answer that. Causality questions require evidence from a certified analytical view."
+          },
+          {
+            "id": "no_subjective_ranking",
+            "type": "keyword_block",
+            "keywords": [
+              "high value customers",
+              "most valuable customer"
+            ],
+            "action": "block",
+            "replacement": "I cannot answer that. 'High value' is not a certified term; please query a certified segmentation view."
+          }
+        ],
+        "input_rules": [
+          {
+            "id": "redact_emails",
+            "type": "regex_block",
+            "pattern": "[\\w.+-]+@[\\w.-]+\\.\\w{2,}",
+            "action": "redact",
+            "message": "Emails are redacted before reaching the model."
+          }
+        ]
+      },
+      "retrieval_config": {},
+      "retrieval": {
+        "corpus_hash": null,
+        "doc_count": null,
+        "embedding_model_version": null,
+        "source_path": null
+      },
+      "scoring_profile": {
+        "version": "1",
+        "name": "default",
+        "scorers": {
+          "correctness": {
+            "type": "exact_match",
+            "weight": 0.35,
+            "case_sensitive": false
+          },
+          "groundedness": {
+            "type": "passage_overlap",
+            "weight": 0.25,
+            "min_overlap": 0.3
+          },
+          "policy_compliance": {
+            "type": "policy_check",
+            "weight": 0.2,
+            "policy_pack_ref": "data/policies/stub.yaml"
+          },
+          "refusal_quality": {
+            "type": "refusal_classifier",
+            "weight": 0.05
+          },
+          "latency": {
+            "type": "latency_budget",
+            "weight": 0.1,
+            "budget_p95_ms": 2000
+          },
+          "completeness": {
+            "type": "non_empty",
+            "weight": 0.05
+          }
+        },
+        "aggregate": {
+          "method": "weighted_mean"
+        }
+      },
+      "semantic_layer": null,
+      "signal_layer": null,
+      "hashes": {
+        "prompt": "7d09bce3375c3463c4833cc618cc3dc6c848f1d3ea50e2acf46d9dc604ba950a",
+        "policy": "85815d1199357eacb9051750e25ceda651c509171268a408043a199563eead3d",
+        "evaluation": "02c5c98de3c469b8506b2936b8621836138173b8d67d3c6919f945072779dc27"
+      },
+      "approval_baseline_run_id": "run_20260420T235820Z_copilot_champion_v2"
+    },
+    "lineage": {
+      "parent_bundle_id": "copilot_champion_v1",
+      "notes": "Copilot champion v2. max_tokens=2048 so reasoning models get a fair budget for challenger comparison."
+    },
+    "schema_version": "1"
+  },
+  {
+    "bundle_id": "copilot_challenger_v2",
+    "name": "copilot_challenger",
+    "version": "2.0.0",
+    "state": "evaluated",
+    "created_at": "2026-04-20T23:58:09Z",
+    "updated_at": "2026-04-21T00:23:14Z",
+    "created_by": "local-user",
+    "components": {
+      "model": {
+        "name": "qwen/qwen3.5-9b",
+        "provider": "lmstudio",
+        "params": {
+          "temperature": 0.2,
+          "max_tokens": 2048,
+          "timeout_seconds": 90
+        }
+      },
+      "prompt": {
+        "template_ref": "data/prompts/copilot_v1.txt",
+        "version": "v1"
+      },
+      "retrieval": {
+        "profile_ref": "stub",
+        "version": "v1"
+      },
+      "policy": {
+        "pack_ref": "data/policies/copilot_policy.yaml",
+        "version": "v1"
+      },
+      "evaluation": {
+        "profile_ref": "configs/scoring_profile.yaml",
+        "version": "v1"
+      },
+      "contract": {
+        "max_prompt_chars": null,
+        "min_output_chars": null,
+        "max_output_chars": null,
+        "required_output_keys": []
+      },
+      "semantic_layer": {
+        "ref": null
+      },
+      "signal_layer": {
+        "ref": null
+      }
+    },
+    "resolved": null,
+    "lineage": {
+      "parent_bundle_id": "copilot_champion_v2",
+      "notes": "Copilot challenger v2. LM Studio qwen/qwen3.5-9b (reasoning model); matched max_tokens=2048 with champion v2."
     },
     "schema_version": "1"
   }

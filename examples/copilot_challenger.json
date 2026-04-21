@@ -5,8 +5,8 @@
       "provider": "lmstudio",
       "params": {
         "temperature": 0.2,
-        "max_tokens": 512,
-        "timeout_seconds": 60
+        "max_tokens": 2048,
+        "timeout_seconds": 90
       }
     },
     "prompt": {
@@ -27,7 +27,7 @@
     }
   },
   "lineage": {
-    "parent_bundle_id": "copilot_champion_v1",
-    "notes": "Copilot challenger bundle. LM Studio qwen/qwen3.5-9b; same prompt + policy as champion — only the model differs."
+    "parent_bundle_id": "copilot_champion_v2",
+    "notes": "Copilot challenger v2. LM Studio qwen/qwen3.5-9b (reasoning model); matched max_tokens=2048 with champion v2."
   }
 }

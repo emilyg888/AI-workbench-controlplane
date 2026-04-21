@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Workbench Control Plane - Deep Technical Architecture</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+            background: #0a0a0a;
+            color: white;
+            overflow: hidden;
+        }
+
+        .slide {
+            width: 1920px;
+            height: 1080px;
+            background: linear-gradient(135deg, #1a1a2e 0%, #0f0f1e 100%);
+            position: relative;
+            transform-origin: top left;
+            padding: 40px 60px;
+        }
+
+        .header {
+            margin-bottom: 24px;
+        }
+
+        .title {
+            font-size: 58px;
+            font-weight: 700;
+            color: #ffffff;
+            margin-bottom: 8px;
+            letter-spacing: -0.5px;
+        }
+
+        .subtitle {
+            font-size: 30px;
+            color: #a0a0b0;
+            font-weight: 400;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            margin-bottom: 28px;
+        }
+
+        .lifecycle-section {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            position: relative;
+        }
+
+        .section-title {
+            font-size: 22px;
+            font-weight: 600;
+            color: #fbbf24;
+            margin-bottom: 16px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .circular-diagram {
+            position: relative;
+            width: 360px;
+            height: 360px;
+            margin: 0 auto;
+        }
+
+        .center-circle {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 15px;
+            font-weight: 700;
+            color: #0a0a0a;
+            text-align: center;
+            z-index: 10;
+            line-height: 1.2;
+        }
+
+        .lifecycle-step {
+            position: absolute;
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 17px;
+            font-weight: 600;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+            min-width: 100px;
+        }
+
+        .lifecycle-step:nth-child(2) { /* Define */
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .lifecycle-step:nth-child(3) { /* Execute */
+            top: 15%;
+            right: 10%;
+        }
+
+        .lifecycle-step:nth-child(4) { /* Evaluate */
+            top: 45%;
+            right: 0;
+        }
+
+        .lifecycle-step:nth-child(5) { /* Promote */
+            bottom: 15%;
+            right: 10%;
+        }
+
+        .lifecycle-step:nth-child(6) { /* Deploy */
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .lifecycle-step:nth-child(7) { /* Runtime */
+            bottom: 15%;
+            left: 10%;
+        }
+
+        .lifecycle-step:nth-child(8) { /* Observe */
+            top: 45%;
+            left: 0;
+        }
+
+        .runtime-section {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .runtime-flow {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .runtime-step {
+            background: rgba(37, 99, 235, 0.2);
+            border-left: 4px solid #3b82f6;
+            padding: 13px 20px;
+            border-radius: 6px;
+            font-size: 17px;
+            font-weight: 500;
+        }
+
+        .principles-section {
+            background: rgba(251, 191, 36, 0.1);
+            border-radius: 16px;
+            padding: 24px;
+            border: 2px solid rgba(251, 191, 36, 0.3);
+        }
+
+        .principles-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+        }
+
+        .principle {
+            font-size: 18px;
+            color: #e5e5e5;
+            line-height: 1.4;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        .principle-number {
+            background: #fbbf24;
+            color: #0a0a0a;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 17px;
+            flex-shrink: 0;
+        }
+
+        .bundle-definition {
+            background: rgba(16, 185, 129, 0.1);
+            border: 2px solid rgba(16, 185, 129, 0.3);
+            border-radius: 12px;
+            padding: 18px;
+            margin-bottom: 28px;
+        }
+
+        .bundle-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #10b981;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .bundle-formula {
+            font-size: 26px;
+            color: #ffffff;
+            font-weight: 600;
+            text-align: center;
+            font-family: 'Courier New', monospace;
+        }
+
+        .highlight {
+            color: #fbbf24;
+            font-weight: 700;
+        }
+
+        @media (max-width: 1920px) {
+            .slide {
+                transform: scale(calc(100vw / 1920));
+            }
+        }
+
+        @media print {
+            @page {
+                size: 1920px 1080px;
+                margin: 0;
+            }
+            
+            body {
+                background: #0a0a0a;
+            }
+
+            .slide {
+                transform: none !important;
+                page-break-after: always;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="slide">
+        <div class="header">
+            <div class="title">AI Workbench Control Plane</div>
+            <div class="subtitle">Deep Technical Architecture</div>
+        </div>
+
+        <div class="bundle-definition">
+            <div class="bundle-title">Core Principle</div>
+            <div class="bundle-formula">
+                Bundle = model + prompt + retrieval + policy + evaluation
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="lifecycle-section">
+                <div class="section-title">Bundle Lifecycle</div>
+                <div class="circular-diagram">
+                    <svg width="360" height="360" style="position: absolute; top: 0; left: 0;">
+                        <defs>
+                            <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                                <polygon points="0 0, 10 3, 0 6" fill="#fbbf24" />
+                            </marker>
+                        </defs>
+                        <!-- Circle path with arrows -->
+                        <path d="M 180,50 A 130,130 0 1,1 179,50" 
+                              stroke="#fbbf24" 
+                              stroke-width="3" 
+                              fill="none" 
+                              marker-end="url(#arrowhead)"
+                              opacity="0.6"/>
+                    </svg>
+                    <div class="center-circle">Bundle<br>Lifecycle</div>
+                    <div class="lifecycle-step">Define</div>
+                    <div class="lifecycle-step">Execute</div>
+                    <div class="lifecycle-step">Evaluate</div>
+                    <div class="lifecycle-step">Promote</div>
+                    <div class="lifecycle-step">Deploy</div>
+                    <div class="lifecycle-step">Runtime</div>
+                    <div class="lifecycle-step">Observe</div>
+                </div>
+            </div>
+
+            <div class="runtime-section">
+                <div class="section-title">Runtime Flow (RAG + Policy)</div>
+                <div class="runtime-flow">
+                    <div class="runtime-step">User Input</div>
+                    <div class="runtime-step">Policy Check - Input</div>
+                    <div class="runtime-step">Retrieval Adapter (RAG)</div>
+                    <div class="runtime-step">Prompt Construction</div>
+                    <div class="runtime-step">Model Adapter (LLM)</div>
+                    <div class="runtime-step">Policy Check - Output</div>
+                    <div class="runtime-step">Response + Log to DuckDB</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="principles-section">
+            <div class="section-title">Key Design Principles</div>
+            <div class="principles-grid">
+                <div class="principle">
+                    <div class="principle-number">1</div>
+                    <div>Promote bundles, not models</div>
+                </div>
+                <div class="principle">
+                    <div class="principle-number">2</div>
+                    <div>Evaluation before deployment</div>
+                </div>
+                <div class="principle">
+                    <div class="principle-number">3</div>
+                    <div>Environment state is explicit</div>
+                </div>
+                <div class="principle">
+                    <div class="principle-number">4</div>
+                    <div>Evidence is persistent</div>
+                </div>
+                <div class="principle">
+                    <div class="principle-number">5</div>
+                    <div>Runtime resolves from registry</div>
+                </div>
+                <div class="principle">
+                    <div class="principle-number">6</div>
+                    <div>Full auditability & reproducibility</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function scaleSlide() {
+            const slide = document.querySelector('.slide');
+            const scaleX = window.innerWidth / 1920;
+            const scaleY = window.innerHeight / 1080;
+            const scale = Math.min(scaleX, scaleY);
+            slide.style.transform = `scale(${scale})`;
+        }
+
+        scaleSlide();
+        window.addEventListener('resize', scaleSlide);
+    </script>
+</body>
+</html>
