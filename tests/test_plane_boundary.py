@@ -1,6 +1,6 @@
 """Enforces control-plane / runtime-plane separation.
 
-See docs/PLANES.md for the contract. This test AST-parses every
+See design/architecture.md for the contract. This test AST-parses every
 runtime-plane module and asserts that no forbidden mutation call names
 appear.
 """

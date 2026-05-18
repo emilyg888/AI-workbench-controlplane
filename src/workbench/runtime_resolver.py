@@ -1,7 +1,7 @@
 """Runtime plane: resolve the active bundle for an env into an
 executable runtime (model + retrieval + policy + prompt).
 
-See docs/PLANES.md. Reads the registry via ``bundle_manager.get_bundle``
+See design/architecture.md. Reads the registry via ``bundle_manager.get_bundle``
 and ``deployment_state_manager.get_active_full``; never mutates.
 """
 from __future__ import annotations
